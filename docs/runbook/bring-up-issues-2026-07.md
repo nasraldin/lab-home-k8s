@@ -58,7 +58,16 @@ hang or fail the same way.
 - **Symptom:** Copy `pod-resolv.conf` failed — destination directory missing.
 - **Fix:** Create `/etc/kubernetes` before copy; only patch kubelet `resolvConf` when config file exists.
 
-### 8. Argo CD could not sync GitOps
+### 8. `*.lab` URLs “can’t be reached” in the browser
+
+- **Symptom:** `http://gitlab.lab` fails in Safari/Chrome while `curl`/IP works.
+- **Causes:**
+  1. Mac DNS was `1.1.1.1` (not AdGuard `.14`).
+  2. GitLab `external_url` was `https://…` so `/` redirected to **`https://gitlab.lab`** (no LAN TLS) and sent HSTS + Secure cookies.
+  3. Wrong Omnibus keys (`gitlab_rails['nginx'][…]` ignored); need top-level `nginx['listen_https']=false` + `nginx['hsts_max_age']=0`.
+- **Fix:** `gitlab_external_url: http://gitlab.lab`; correct `nginx[]` / `registry_nginx[]` keys; AdGuard DNS + optional `/etc/resolver/lab`. Clear browser HSTS for `gitlab.lab` if previously visited.
+
+### 9. Argo CD could not sync GitOps
 
 - **Symptom:** `ComparisonError` / HTTP 530 to `https://gitlab.nasraldin.com/...`.
 - **Cause:** Fresh GitLab had no projects; public Tunnel not healthy; install script fell back to GitHub `gh` token.

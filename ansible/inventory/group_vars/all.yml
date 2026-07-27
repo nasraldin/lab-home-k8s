@@ -83,6 +83,8 @@ lab_urls:
   adguard: "http://adguard.lab:3000"
   dns: "http://dns.lab:5380"
   infisical: "http://infisical.lab:8090"
+  ollama: "http://ollama.lab:11434"
+  ai: "http://ai.lab:11434"
   kube_api: "https://kube.lab:6443"
 
 # Internal lab.nasraldin.com records (Technitium authoritative zone)
@@ -133,6 +135,8 @@ technitium_short_zone_records:
   - { name: "dns", value: "{{ guest_ips['infra-01'] }}" }
   - { name: "technitium", value: "{{ guest_ips['infra-01'] }}" }
   - { name: "infisical", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "ollama", value: "{{ guest_ips['ai-01'] }}" }
+  - { name: "ai", value: "{{ guest_ips['ai-01'] }}" }
   - { name: "gateway", value: "{{ gateway_ip }}" }
 
 # Technitium zones managed by ansible/roles/technitium_dns
@@ -158,8 +162,9 @@ adguard_admin_password: "{{ vault_adguard_admin_password }}"
 technitium_admin_password: "{{ vault_technitium_admin_password }}"
 
 # GitLab Omnibus — public URLs set before first reconfigure (TLS at Cloudflare)
-gitlab_external_url: "{{ public_urls.gitlab }}"
-gitlab_registry_external_url: "{{ public_urls.registry }}"
+# GitLab Omnibus — LAN HTTP primary (*.lab). Public HTTPS is Cloudflare Tunnel → this origin.
+gitlab_external_url: "{{ lab_urls.gitlab }}"
+gitlab_registry_external_url: "http://registry.lab:{{ gitlab_registry_listen_port | default(5050) }}"
 gitlab_object_store_endpoint: "http://{{ guest_ips['infra-01'] }}:9000"
 
 # Argo CD bootstrap (install-argocd.sh)
