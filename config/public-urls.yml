@@ -21,15 +21,15 @@ public_urls:
 # Cloudflare Tunnel → LAN origin (see config/cloudflare-tunnel-ingress.example.json)
 tunnel_origins:
   homelab: https://127.0.0.1:8006
-  gitlab: http://192.168.68.11:80
-  registry: http://192.168.68.11:5050
+  gitlab: http://192.168.68.15:80
+  registry: http://192.168.68.15:5050
   dockhand: http://192.168.68.18:3000
   argo: http://192.168.68.100:80
   harbor: http://192.168.68.101:80
   grafana: http://192.168.68.102:80
   keycloak: http://192.168.68.103:80
-  minio: http://192.168.68.10:9001
-  s3: http://192.168.68.10:9000
+  minio: http://192.168.68.14:9001
+  s3: http://192.168.68.14:9000
   npm: http://192.168.68.17:81
   portainer: https://192.168.68.19:9443
 

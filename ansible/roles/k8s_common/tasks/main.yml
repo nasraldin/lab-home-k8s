@@ -75,6 +75,13 @@
 
 # kubelet injects host search domains into every pod resolv.conf. Keep a
 # search-free file and point kubelet at it (avoids DHCP search lab.nasraldin.com).
+- name: Ensure /etc/kubernetes exists for pod resolv.conf
+  ansible.builtin.file:
+    path: /etc/kubernetes
+    state: directory
+    mode: "0755"
+  when: "'k8s_nodes' in group_names"
+
 - name: Install search-free resolv.conf for kubelet pods
   ansible.builtin.copy:
     dest: /etc/kubernetes/pod-resolv.conf
@@ -85,10 +92,18 @@
       options edns0
   when: "'k8s_nodes' in group_names"
 
+- name: Check whether kubelet config exists
+  ansible.builtin.stat:
+    path: /var/lib/kubelet/config.yaml
+  register: k8s_kubelet_config
+  when: "'k8s_nodes' in group_names"
+
 - name: Point kubelet resolvConf at search-free file
   ansible.builtin.lineinfile:
     path: /var/lib/kubelet/config.yaml
     regexp: "^resolvConf:"
     line: "resolvConf: /etc/kubernetes/pod-resolv.conf"
-  when: "'k8s_nodes' in group_names"
+  when:
+    - "'k8s_nodes' in group_names"
+    - k8s_kubelet_config.stat.exists | default(false)
   notify: Restart kubelet

@@ -11,10 +11,24 @@
     dest: "{{ mailpit_compose_dir }}/compose.yaml"
     mode: "0640"
 
+- name: Pull mailpit images (retry on registry timeouts)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ mailpit_compose_dir }}/compose.yaml pull
+  args:
+    chdir: "{{ mailpit_compose_dir }}"
+  register: mp_pull
+  retries: 5
+  delay: 15
+  until: mp_pull.rc == 0
+  changed_when: false
+
 - name: Start mailpit
   ansible.builtin.command:
     cmd: docker compose -f {{ mailpit_compose_dir }}/compose.yaml up -d
   args:
     chdir: "{{ mailpit_compose_dir }}"
   register: mp_up
+  retries: 5
+  delay: 15
+  until: mp_up.rc == 0
   changed_when: "'Started' in mp_up.stderr or 'Created' in mp_up.stderr or 'Running' in mp_up.stderr"

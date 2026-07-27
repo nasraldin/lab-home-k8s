@@ -29,7 +29,7 @@ gitlab_web_ide_extension_host_domain: "cdn.web-ide.gitlab-static.net"
 gitlab_web_ide_single_origin_fallback: false
 
 gitlab_object_store_enabled: true
-gitlab_object_store_endpoint: "http://192.168.68.10:9000"
+gitlab_object_store_endpoint: "http://192.168.68.14:9000"
 gitlab_object_store_access_key: "{{ vault_gitlab_s3_access_key }}"
 gitlab_object_store_secret_key: "{{ vault_gitlab_s3_secret_key }}"
 

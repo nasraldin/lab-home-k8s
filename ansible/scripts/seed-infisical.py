@@ -12,7 +12,7 @@ Auth (env — pick one):
   OR INFISICAL_EMAIL + INFISICAL_PASSWORD
 
 Other env:
-  INFISICAL_URL          default http://192.168.68.10:8090
+  INFISICAL_URL          default http://192.168.68.14:8090
   INFISICAL_ORG_ID       optional; auto-picked if you belong to one org
   SECRETS_FILE           default ../../secrets.yml (relative to this script)
   SEED_MAP               default ../files/infisical/seed-map.yaml
@@ -277,7 +277,7 @@ def load_yaml(path: Path) -> Any:
 
 
 def main() -> int:
-    base = os.environ.get("INFISICAL_URL", "http://192.168.68.10:8090")
+    base = os.environ.get("INFISICAL_URL", "http://192.168.68.14:8090")
     secrets_path = Path(os.environ.get("SECRETS_FILE", str(DEFAULT_SECRETS)))
     map_path = Path(os.environ.get("SEED_MAP", str(DEFAULT_MAP)))
     dry = os.environ.get("DRY_RUN", "") in ("1", "true", "yes")

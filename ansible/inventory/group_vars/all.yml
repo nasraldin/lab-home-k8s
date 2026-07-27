@@ -4,22 +4,23 @@ lab_zone: "lab.nasraldin.com"
 lab_short_zone: "lab" # Short LAN-only zone (gitlab.lab, grafana.lab, …)
 public_zone: "nasraldin.com"
 gateway_ip: "192.168.68.1"
-pve_ip: "192.168.68.2" # Proxmox host on the new machine (not a guest VM)
-adguard_ip: "192.168.68.10"
-technitium_ip: "192.168.68.10"
+pve_ip: "192.168.68.13" # Proxmox hypervisor (not a guest VM)
+adguard_ip: "192.168.68.14"
+technitium_ip: "192.168.68.14"
 
 # Guest LAN addresses (VMID 110–117 VMs, LXC 118–119)
 guest_ips:
-  infra-01: "192.168.68.10"
-  gitlab-01: "192.168.68.11"
-  runner-01: "192.168.68.12"
-  k8s-cp-01: "192.168.68.13"
-  k8s-w-01: "192.168.68.14"
-  k8s-w-02: "192.168.68.15"
-  k8s-w-03: "192.168.68.16"
-  docker-01: "192.168.68.17"
-  dockhand: "192.168.68.18"
-  portainer: "192.168.68.19"
+  infra-01: "192.168.68.14"
+  gitlab-01: "192.168.68.15"
+  runner-01: "192.168.68.16"
+  k8s-cp-01: "192.168.68.17"
+  k8s-w-01: "192.168.68.18"
+  k8s-w-02: "192.168.68.19"
+  k8s-w-03: "192.168.68.20"
+  docker-01: "192.168.68.21"
+  dockhand: "192.168.68.22"
+  portainer: "192.168.68.23"
+  ai-01: "192.168.68.24"
 
 # Public HTTPS hostnames (Cloudflare proxied CNAME → tunnel)
 public_urls:

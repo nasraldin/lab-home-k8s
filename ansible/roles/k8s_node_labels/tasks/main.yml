@@ -1,9 +1,10 @@
 ---
-- name: Wait until all workers are Ready
-  ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
-  register: k8s_node_ready
-  until: k8s_node_ready.stdout == "True"
-  retries: 60
+# Nodes stay NotReady until Cilium (make bootstrap). Wait for join only.
+- name: Wait until worker nodes are registered
+  ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.metadata.name}'
+  register: k8s_node_registered
+  until: k8s_node_registered.stdout == item
+  retries: 30
   delay: 10
   loop: "{{ groups['k8s_workers'] }}"
   changed_when: false

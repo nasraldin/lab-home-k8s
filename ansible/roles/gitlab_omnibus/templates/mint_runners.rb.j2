@@ -22,9 +22,11 @@ Dir.mkdir(token_dir) unless Dir.exist?(token_dir)
 changed = false
 
 desired.each do |want|
+  path = File.join(token_dir, "#{want['description']}.token")
   existing = Ci::Runner.where(description: want['description']).to_a
   if existing.any?
-    puts({ name: want['description'], status: 'exists' }.to_json)
+    # Token file is only written on create (auth token is one-time). Keep existing file.
+    puts({ name: want['description'], status: 'exists', token_file: File.exist?(path) }.to_json)
     next
   end
 
@@ -42,7 +44,6 @@ desired.each do |want|
 
   runner = res.respond_to?(:payload) ? res.payload[:runner] : res
   token = runner.token
-  path = File.join(token_dir, "#{want['description']}.token")
   File.write(path, token)
   begin
     File.chmod(0640, path)

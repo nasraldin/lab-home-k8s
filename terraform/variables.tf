@@ -176,10 +176,11 @@ variable "pci_mappings" {
     Host must bind the device to vfio-pci before the guest starts — see README.
   EOT
   type = map(object({
-    id          = string           # vendor:device, e.g. 1002:150e (lspci -nn)
-    path        = string           # e.g. 0000:c6:00.0
-    iommu_group = optional(number) # fill from node when known
-    comment     = optional(string)
+    id           = string           # vendor:device, e.g. 1002:150e (lspci -nn)
+    subsystem_id = optional(string) # SVID:SDID, e.g. 1f4c:b020 (required on newer PVE)
+    path         = string           # e.g. 0000:c6:00.0
+    iommu_group  = optional(number) # fill from node when known
+    comment      = optional(string)
   }))
   default = {}
 }

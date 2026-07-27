@@ -31,4 +31,4 @@
   ansible.builtin.debug:
     msg: >-
       Open {{ portainer_public_url }} and add environments for infra-01
-      (192.168.68.10) and docker-01 (192.168.68.17).
+      (192.168.68.14) and docker-01 (192.168.68.21).

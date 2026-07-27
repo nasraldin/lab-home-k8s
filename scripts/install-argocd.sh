@@ -7,14 +7,16 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 require_cluster
 need_cmd helm
 
-# HTTPS matches the working lab path (SSH deploy keys hit Argo agent issues here).
-GITOPS_REPO="${GITOPS_REPO:-https://gitlab.nasraldin.com/homelab/lab-home-gitops.git}"
+# Prefer LAN GitLab during bring-up (public Tunnel may return 530 before CF is healthy).
+# Override with GITOPS_REPO=https://gitlab.nasraldin.com/homelab/lab-home-gitops.git when Tunnel is up.
+GITOPS_REPO="${GITOPS_REPO:-http://192.168.68.15/homelab/lab-home-gitops.git}"
 ARGO_NS=argocd
 REGISTER_REPO="${REGISTER_REPO:-true}"
 ARGO_HOSTNAME="${ARGO_HOSTNAME:-argo.nasraldin.com}"
 ARGO_LB_IP="${ARGO_LB_IP:-192.168.68.100}"
 ARGO_PUBLIC_URL="${ARGO_PUBLIC_URL:-https://${ARGO_HOSTNAME}}"
-
+# GitLab PAT / project token with read_repository (required for private GitOps repo).
+# Do not fall back to `gh` — that targets GitHub and cannot authenticate GitLab.
 echo "==> Creating namespace ${ARGO_NS}"
 kubectl create namespace "${ARGO_NS}" --dry-run=client -o yaml | kubectl apply -f -
 
@@ -38,11 +40,12 @@ kubectl -n "${ARGO_NS}" rollout status deploy/argocd-server --timeout=300s
 if [[ "${REGISTER_REPO}" == "true" ]]; then
   echo "==> Registering private GitOps repo credential"
   TOKEN="${GITOPS_TOKEN:-}"
-  if [[ -z "${TOKEN}" ]] && command -v gh >/dev/null 2>&1; then
-    TOKEN="$(gh auth token 2>/dev/null || true)"
+  if [[ -z "${TOKEN}" ]]; then
+    echo "ERROR: set GITOPS_TOKEN to a GitLab PAT/project token with read_repository" >&2
+    echo "  Example: GITOPS_TOKEN=glpat-... GITOPS_REPO=${GITOPS_REPO} ./scripts/install-argocd.sh" >&2
+    exit 1
   fi
-  if [[ -n "${TOKEN}" ]]; then
-    kubectl -n "${ARGO_NS}" apply -f - <<EOF
+  kubectl -n "${ARGO_NS}" apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -55,14 +58,10 @@ stringData:
   type: git
   name: lab-home-gitops
   url: ${GITOPS_REPO}
-  username: ${GITOPS_USERNAME:-nasraldin}
+  username: ${GITOPS_USERNAME:-oauth2}
   password: ${TOKEN}
 EOF
-  else
-    echo "WARN: no GITOPS_TOKEN — create repo-lab-home-gitops Secret manually" >&2
-  fi
 fi
-
 ROOT_APP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/argocd-root-app.yaml"
 if [[ -f "${ROOT_APP}" ]]; then
   echo "==> Applying root Application"

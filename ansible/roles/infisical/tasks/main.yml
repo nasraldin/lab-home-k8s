@@ -52,12 +52,32 @@
       # Infisical ops ({{ inventory_hostname }})
 
       - UI: {{ infisical_site_url }}
-      - Postgres: PgCat {{ infisical_pg_host }}:{{ infisical_pg_port }} (database-01)
+      - Postgres: compose service {{ infisical_pg_host }}:{{ infisical_pg_port }}
       - Stack: `docker compose -f {{ infisical_compose_dir }}/docker-compose.yml`
       - Back up ENCRYPTION_KEY + DB dump; key loss = data loss
 
 - name: Flush handlers to start stack
   ansible.builtin.meta: flush_handlers
+
+- name: Ensure proxy Docker network exists
+  ansible.builtin.command:
+    cmd: docker network create proxy
+  register: infisical_proxy_net
+  changed_when: infisical_proxy_net.rc == 0
+  failed_when: >-
+    infisical_proxy_net.rc != 0
+    and ('already exists' not in (infisical_proxy_net.stderr | default('')))
+
+- name: Pull Infisical images (retry on registry timeouts)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ infisical_compose_dir }}/docker-compose.yml pull
+  args:
+    chdir: "{{ infisical_compose_dir }}"
+  register: infisical_pull
+  retries: 5
+  delay: 15
+  until: infisical_pull.rc == 0
+  changed_when: false
 
 - name: Ensure Infisical stack is up
   ansible.builtin.command:
@@ -65,6 +85,9 @@
   args:
     chdir: "{{ infisical_compose_dir }}"
   register: infisical_compose_up
+  retries: 5
+  delay: 15
+  until: infisical_compose_up.rc == 0
   changed_when: "'Started' in infisical_compose_up.stderr or 'Created' in infisical_compose_up.stderr"
 
 - name: Wait for Infisical API status
@@ -73,6 +96,6 @@
     method: GET
     status_code: [200]
   register: infisical_status
-  retries: 40
+  retries: 60
   delay: 5
   until: infisical_status.status == 200

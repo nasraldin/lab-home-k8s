@@ -18,7 +18,7 @@
   connection: local
   gather_facts: false
   vars:
-    infisical_url: "{{ vault_infisical_url | default('http://192.168.68.10:8090') }}"
+    infisical_url: "{{ vault_infisical_url | default('http://192.168.68.14:8090') }}"
     dry_run: false
   tasks:
     - name: Ensure PyYAML available

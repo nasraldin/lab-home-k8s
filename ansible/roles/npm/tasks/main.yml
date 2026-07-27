@@ -25,10 +25,24 @@
     mode: "0640"
   no_log: true
 
+- name: Pull NPM images (retry on registry timeouts)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ npm_compose_dir }}/compose.yaml pull
+  args:
+    chdir: "{{ npm_compose_dir }}"
+  register: npm_pull
+  retries: 5
+  delay: 15
+  until: npm_pull.rc == 0
+  changed_when: false
+
 - name: Start NPM
   ansible.builtin.command:
     cmd: docker compose -f {{ npm_compose_dir }}/compose.yaml up -d
   args:
     chdir: "{{ npm_compose_dir }}"
   register: npm_up
+  retries: 5
+  delay: 15
+  until: npm_up.rc == 0
   changed_when: "'Started' in npm_up.stderr or 'Created' in npm_up.stderr or 'Running' in npm_up.stderr"

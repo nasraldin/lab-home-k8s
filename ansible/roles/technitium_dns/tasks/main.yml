@@ -95,6 +95,21 @@
     technitium_token: "{{ technitium_login_new.json.token }}"
   no_log: true
 
+- name: Bind Technitium DNS to loopback authoritative port (free LAN :53 for AdGuard)
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ technitium_web_port }}/api/settings/set?dnsServerLocalEndPoints={{
+        technitium_dns_local_endpoints | urlencode
+      }}
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  register: technitium_bind
+  failed_when: (technitium_bind.json.status | default('')) != 'ok'
+  no_log: true
+
 - name: List zones
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/list"

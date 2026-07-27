@@ -8,10 +8,11 @@ resource "proxmox_hardware_mapping_pci" "guest" {
 
   map = [
     {
-      id          = each.value.id
-      node        = var.node_name
-      path        = each.value.path
-      iommu_group = each.value.iommu_group
+      id           = each.value.id
+      subsystem_id = each.value.subsystem_id
+      node         = var.node_name
+      path         = each.value.path
+      iommu_group  = each.value.iommu_group
     }
   ]
 }

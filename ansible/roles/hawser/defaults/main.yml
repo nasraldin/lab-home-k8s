@@ -4,5 +4,5 @@ hawser_image: "ghcr.io/finsys/hawser:latest"
 # Overridden per-host from dockhand-hawser-tokens.json by playbook
 hawser_token: ""
 hawser_agent_name: "{{ inventory_hostname }}"
-hawser_dockhand_server_url: "ws://192.168.68.24:3000/api/hawser/connect"
+hawser_dockhand_server_url: "ws://192.168.68.22:3000/api/hawser/connect"
 hawser_docker_socket: /var/run/docker.sock

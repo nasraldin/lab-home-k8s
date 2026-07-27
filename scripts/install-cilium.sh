@@ -29,7 +29,7 @@ helm upgrade --install cilium cilium/cilium \
   --set bpf.masquerade=true \
   --set ipam.mode=cluster-pool \
   --set 'ipam.operator.clusterPoolIPv4PodCIDRList={10.244.0.0/16}' \
-  --set k8sServiceHost="${K8S_API_HOST:-kube-api.lab.nasraldin.com}" \
+  --set k8sServiceHost="${K8S_API_HOST:-192.168.68.17}" \
   --set k8sServicePort=6443
 
 echo "==> Applying CiliumLoadBalancerIPPool + L2AnnouncementPolicy"

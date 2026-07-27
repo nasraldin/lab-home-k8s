@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-DEFAULT_BASE = os.environ.get("DOCKHAND_URL", "http://192.168.68.24:3000")
+DEFAULT_BASE = os.environ.get("DOCKHAND_URL", "http://192.168.68.22:3000")
 DEFAULT_TOKEN_FILE = Path(
     os.environ.get(
         "DOCKHAND_HAWSER_TOKENS_FILE",
@@ -204,7 +204,7 @@ def main() -> int:
     # Agents on LAN should dial Dockhand over ws:// (Access on public hostname blocks agents)
     token_store["dockhand_server_url"] = os.environ.get(
         "DOCKHAND_SERVER_URL",
-        "ws://192.168.68.24:3000/api/hawser/connect",
+        "ws://192.168.68.22:3000/api/hawser/connect",
     )
     args.tokens_file.parent.mkdir(parents=True, exist_ok=True)
     args.tokens_file.write_text(json.dumps(token_store, indent=2) + "\n")

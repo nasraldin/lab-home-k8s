@@ -19,4 +19,6 @@ __pycache__/
 
 ansible/.cache/
 ansible/files/dockhand-hawser-tokens.json
-ansible/files/aistor/
+ansible/files/aistor/*
+!ansible/files/aistor/README.md
+*.bak

@@ -1,0 +1,8 @@
+# Docker app host published ports (NPM / it-tools / mailpit)
+guest_extra_ufw_rules:
+  - { rule: allow, port: "80", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-http }
+  - { rule: allow, port: "443", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-https }
+  - { rule: allow, port: "81", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-admin }
+  - { rule: allow, port: "1000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-it-tools }
+  - { rule: allow, port: "8025", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-mailpit-ui }
+  - { rule: allow, port: "1025", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-mailpit-smtp }

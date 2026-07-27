@@ -19,6 +19,7 @@
   roles:
     - role: guest_common
     - role: docker_host
+    # AdGuard owns LAN :53; Technitium is authoritative on loopback :5300 (same host).
     - role: technitium_dns
     - role: adguard_home
     - role: infisical

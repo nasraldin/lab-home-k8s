@@ -1,0 +1,5 @@
+# GitLab Omnibus on gitlab-01 (HTTP on LAN; CF Tunnel terminates HTTPS publicly)
+guest_extra_ufw_rules:
+  - { rule: allow, port: "80", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-gitlab-http }
+  - { rule: allow, port: "443", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-gitlab-https }
+  - { rule: allow, port: "5050", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-gitlab-registry }

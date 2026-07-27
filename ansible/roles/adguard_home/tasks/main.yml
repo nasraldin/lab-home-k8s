@@ -79,13 +79,9 @@
       web:
         ip: "0.0.0.0"
         port: "{{ adguard_web_port | int }}"
-        status: ""
-        can_autofix: false
       dns:
         ip: "0.0.0.0"
         port: "{{ adguard_dns_port | int }}"
-        status: ""
-        can_autofix: false
       username: "{{ adguard_admin_user }}"
       password: "{{ adguard_admin_password }}"
     status_code: [200]
@@ -128,10 +124,23 @@
   ansible.builtin.set_fact:
     adguard_session_cookie: >-
       {{
-        'agh_session=' ~ (adguard_login.json.token | default(''))
-        if (adguard_login.json.token | default('')) | length > 0
-        else (adguard_login.cookies_string | default(''))
+        adguard_login.cookies_string
+        if (adguard_login.cookies_string | default('') | length > 0)
+        else (
+          ('agh_session=' ~ adguard_login.json.token)
+          if (adguard_login.json is defined)
+             and (adguard_login.json is mapping)
+             and ((adguard_login.json.token | default('')) | length > 0)
+          else ''
+        )
       }}
+  no_log: true
+
+- name: Require AdGuard session cookie
+  ansible.builtin.assert:
+    that:
+      - (adguard_session_cookie | default('') | length) > 0
+    fail_msg: AdGuard login succeeded but no session cookie/token was returned.
   no_log: true
 
 - name: Set AdGuard DNS upstreams (lab zone → Technitium)
@@ -143,8 +152,8 @@
       Cookie: "{{ adguard_session_cookie }}"
     body:
       upstream_dns:
-        - "[/{{ lab_short_zone }}/]{{ technitium_ip }}"
-        - "[/{{ lab_zone }}/]{{ technitium_ip }}"
+        - "[/{{ lab_short_zone }}/]127.0.0.1:{{ technitium_dns_port | default(5300) }}"
+        - "[/{{ lab_zone }}/]127.0.0.1:{{ technitium_dns_port | default(5300) }}"
         - "1.1.1.1"
         - "1.0.0.1"
       bootstrap_dns:

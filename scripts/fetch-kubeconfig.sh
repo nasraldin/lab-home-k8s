@@ -3,12 +3,12 @@
 # so kubectl works anytime (no KUBECONFIG export needed).
 set -euo pipefail
 
-CP_HOST="${CP_HOST:-nasr@192.168.68.13}"
+CP_HOST="${CP_HOST:-nasr@192.168.68.17}"
 KUBE_DIR="${HOME}/.kube"
 DEFAULT_CONFIG="${KUBE_DIR}/config"
 STANDALONE="${KUBE_DIR}/home-lab.config"
-API_DNS="${API_DNS:-192.168.68.13}"
-API_VIP="${API_VIP:-192.168.68.13}"
+API_DNS="${API_DNS:-192.168.68.17}"
+API_VIP="${API_VIP:-192.168.68.17}"
 CONTEXT_NAME="${CONTEXT_NAME:-home-lab}"
 CLUSTER_NAME="${CLUSTER_NAME:-home-lab}"
 USER_NAME="${USER_NAME:-home-lab-admin}"

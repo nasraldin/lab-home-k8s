@@ -8,11 +8,11 @@
       },
       {
         "hostname": "gitlab.nasraldin.com",
-        "service": "http://192.168.68.11:80"
+        "service": "http://192.168.68.15:80"
       },
       {
         "hostname": "registry.nasraldin.com",
-        "service": "http://192.168.68.11:5050"
+        "service": "http://192.168.68.15:5050"
       },
       {
         "hostname": "docker.nasraldin.com",
@@ -36,11 +36,11 @@
       },
       {
         "hostname": "minio.nasraldin.com",
-        "service": "http://192.168.68.10:9001"
+        "service": "http://192.168.68.14:9001"
       },
       {
         "hostname": "s3.nasraldin.com",
-        "service": "http://192.168.68.10:9000"
+        "service": "http://192.168.68.14:9000"
       },
       {
         "hostname": "npm.nasraldin.com",

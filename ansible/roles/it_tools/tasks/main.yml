@@ -11,10 +11,24 @@
     dest: "{{ it_tools_compose_dir }}/compose.yaml"
     mode: "0640"
 
+- name: Pull it-tools images (retry on registry timeouts)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ it_tools_compose_dir }}/compose.yaml pull
+  args:
+    chdir: "{{ it_tools_compose_dir }}"
+  register: itt_pull
+  retries: 5
+  delay: 15
+  until: itt_pull.rc == 0
+  changed_when: false
+
 - name: Start it-tools
   ansible.builtin.command:
     cmd: docker compose -f {{ it_tools_compose_dir }}/compose.yaml up -d
   args:
     chdir: "{{ it_tools_compose_dir }}"
   register: itt_up
+  retries: 5
+  delay: 15
+  until: itt_up.rc == 0
   changed_when: "'Started' in itt_up.stderr or 'Created' in itt_up.stderr or 'Running' in itt_up.stderr"
