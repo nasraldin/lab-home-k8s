@@ -37,11 +37,16 @@ resource "proxmox_virtual_environment_vm" "this" {
     sockets = 1
     type    = "host"
     limit   = var.cpu_limit
+    # Hugepages require NUMA (Proxmox / bpg).
+    numa = var.numa || var.hugepages != null
   }
 
   memory {
     dedicated = var.memory
-    floating  = var.memory
+    # Ballooning conflicts with hugepages — force fixed RAM when hugepages are set.
+    floating       = var.hugepages != null ? 0 : var.memory
+    hugepages      = var.hugepages
+    keep_hugepages = var.hugepages != null ? var.keep_hugepages : false
   }
 
   efi_disk {
@@ -72,6 +77,17 @@ resource "proxmox_virtual_environment_vm" "this" {
       cache        = "none"
       size         = disk.value
       file_format  = "raw"
+    }
+  }
+
+  dynamic "hostpci" {
+    for_each = { for i, h in var.hostpci : i => h }
+    content {
+      device  = "hostpci${hostpci.key}"
+      mapping = hostpci.value.mapping
+      pcie    = hostpci.value.pcie
+      rombar  = hostpci.value.rombar
+      xvga    = hostpci.value.xvga
     }
   }
 

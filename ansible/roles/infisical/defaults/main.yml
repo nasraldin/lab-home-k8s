@@ -1,6 +1,7 @@
 ---
 # Infisical self-host (Docker Compose) — application env-secrets plane.
-# App secrets in Infisical; infra/crypto patterns in homelab hub secret-ownership-map.
+# Runs on infra-01 in the home lab (inventory group infisical).
+# App secrets in Infisical; seed via playbooks/infisical-seed.yml.
 
 infisical_compose_dir: /opt/infisical
 infisical_image: "infisical/infisical"

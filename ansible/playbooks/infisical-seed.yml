@@ -1,0 +1,50 @@
+---
+# Seed Infisical projects/folders/secrets from secrets.yml.
+#
+# Prerequisites:
+#   - Infisical healthy on infra-01 (:8090)
+#   - Org + admin created once in the UI
+#   - Machine identity Universal Auth OR admin email/password
+#
+# Example:
+#   ansible-playbook playbooks/infisical-seed.yml -e @secrets.yml \
+#     -e infisical_ua_client_id=... -e infisical_ua_client_secret=...
+#
+# Or dry-run:
+#   ansible-playbook playbooks/infisical-seed.yml -e @secrets.yml -e dry_run=true
+
+- name: Seed Infisical from secrets.yml
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    infisical_url: "{{ vault_infisical_url | default('http://192.168.68.10:8090') }}"
+    dry_run: false
+  tasks:
+    - name: Ensure PyYAML available
+      ansible.builtin.pip:
+        name: pyyaml
+        state: present
+        executable: pip3
+      become: false
+
+    - name: Run Infisical seed script
+      ansible.builtin.command:
+        cmd: python3 {{ playbook_dir }}/../scripts/seed-infisical.py
+      environment:
+        INFISICAL_URL: "{{ infisical_url }}"
+        SECRETS_FILE: "{{ playbook_dir }}/../secrets.yml"
+        SEED_MAP: "{{ playbook_dir }}/../files/infisical/seed-map.yaml"
+        DRY_RUN: "{{ '1' if dry_run | bool else '0' }}"
+        INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: "{{ infisical_ua_client_id | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_ID')) }}"
+        INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: "{{ infisical_ua_client_secret | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET')) }}"
+        INFISICAL_EMAIL: "{{ infisical_email | default(lookup('env', 'INFISICAL_EMAIL')) }}"
+        INFISICAL_PASSWORD: "{{ infisical_password | default(lookup('env', 'INFISICAL_PASSWORD')) }}"
+        INFISICAL_ORG_ID: "{{ infisical_org_id | default(lookup('env', 'INFISICAL_ORG_ID')) }}"
+      register: seed_result
+      changed_when: "'upsert' in seed_result.stdout or 'Creating project' in seed_result.stdout"
+      failed_when: seed_result.rc != 0
+
+    - name: Show seed output
+      ansible.builtin.debug:
+        var: seed_result.stdout_lines

@@ -150,13 +150,36 @@ variable "vms" {
     cpu_limit          = optional(number)       # fractional cpulimit (e.g. 0.5); null = unlimited
     memory             = optional(number, 2048) # MB
     disk_gb            = optional(number, 20)
-    data_disk_gb       = optional(number) # second disk for Longhorn workers
+    data_disk_gb       = optional(number)         # second disk for Longhorn workers
     ip                 = optional(string, "dhcp") # CIDR (192.168.68.20/24) or "dhcp"
     bridge             = optional(string)
     vlan_id            = optional(number)
     startup_order      = optional(number) # lower boots first on host start
     startup_up_delay   = optional(number) # seconds before next VM
     startup_down_delay = optional(number)
+    # PCI hardware-mapping names (see var.pci_mappings); e.g. ["ai-igpu"]
+    hostpci_mappings = optional(list(string), [])
+    # Guest RAM hugepages: "2" | "1024" | "any" (null = off). Prefer "2" for AI VMs.
+    hugepages      = optional(string)
+    keep_hugepages = optional(bool, false)
+    numa           = optional(bool, false) # auto-on when hugepages is set
+  }))
+  default = {}
+}
+
+# --- PCI passthrough (GPU / etc.) ------------------------------------------------
+
+variable "pci_mappings" {
+  description = <<-EOT
+    Cluster PCI hardware mappings for VFIO passthrough (required with API-token auth).
+    Example for Radeon 890M: ai-igpu id 1002:150e path 0000:c6:00.0 (verify with lspci -nn).
+    Host must bind the device to vfio-pci before the guest starts — see README.
+  EOT
+  type = map(object({
+    id          = string           # vendor:device, e.g. 1002:150e (lspci -nn)
+    path        = string           # e.g. 0000:c6:00.0
+    iommu_group = optional(number) # fill from node when known
+    comment     = optional(string)
   }))
   default = {}
 }

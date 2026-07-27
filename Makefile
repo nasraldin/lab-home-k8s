@@ -1,7 +1,10 @@
-.PHONY: tf-init tf-plan tf-apply ansible ansible-infra ansible-gitlab ansible-docker ansible-k8s bootstrap verify docs
+.PHONY: tf-init tf-adopt tf-plan tf-apply ansible ansible-infra ansible-gitlab ansible-docker ansible-k8s bootstrap verify docs
 
 tf-init:
 	cd terraform && terraform init
+
+tf-adopt:
+	cd terraform && ./scripts/adopt-existing.sh
 
 tf-plan:
 	cd terraform && terraform plan -out=tfplan

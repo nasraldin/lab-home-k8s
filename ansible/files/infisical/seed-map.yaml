@@ -1,0 +1,107 @@
+# Maps ansible/secrets.yml keys → Infisical project / path / secret name.
+# Consumed by scripts/seed-infisical.py after Infisical is up on infra-01.
+#
+# Projects (slug):
+#   infra      — appliances, DNS, AIStor, GitLab platform, NPM
+#   pipelines  — CI/CD: Harbor robot, runner tokens, Cosign, optional kubeconfig
+#   kubernetes  — in-cluster platform apps (Keycloak, Harbor, Sonar, Grafana, …)
+#   apps       — workload app secrets (LiteLLM, LibreChat, n8n, …)
+#
+# Environment for this lab: prod (single env). Add staging later if needed.
+#
+# GitOps note: Argo CD deploys from Git — pipelines do NOT need a cluster
+# kubeconfig for routine platform/app sync. Store KUBECONFIG only if a job
+# must talk to the API directly (imperative kubectl/helm outside Argo).
+
+organization_name: Dev Homelab
+default_environment: prod
+
+projects:
+  - slug: infra
+    name: Infra
+    description: Layer-1 appliances and platform roots (Ansible / operators)
+    secrets:
+      - { key: ADGUARD_ADMIN_PASSWORD, from: vault_adguard_admin_password, path: / }
+      - { key: TECHNITIUM_ADMIN_PASSWORD, from: vault_technitium_admin_password, path: / }
+      - { key: TECHNITIUM_API_TOKEN, from: vault_technitium_api_token, path: /, optional: true }
+      - { key: AISTOR_ROOT_USER, from: vault_aistor_root_user, path: /aistor }
+      - { key: AISTOR_ROOT_PASSWORD, from: vault_aistor_root_password, path: /aistor }
+      - { key: GITLAB_S3_ACCESS_KEY, from: vault_gitlab_s3_access_key, path: /aistor }
+      - { key: GITLAB_S3_SECRET_KEY, from: vault_gitlab_s3_secret_key, path: /aistor }
+      - { key: POSTGRES_USER, from: vault_postgres_user, path: /database }
+      - { key: POSTGRES_PASSWORD, from: vault_postgres_password, path: /database }
+      - { key: REDIS_PASSWORD, from: vault_redis_password, path: /database }
+      - { key: MARIADB_ROOT_PASSWORD, from: vault_mariadb_root_password, path: /database }
+      - { key: PGADMIN_EMAIL, from: vault_pgadmin_email, path: /database }
+      - { key: PGADMIN_PASSWORD, from: vault_pgadmin_password, path: /database }
+      - { key: GITLAB_ROOT_PASSWORD, from: vault_gitlab_root_password, path: /gitlab }
+      - { key: NPM_ADMIN_EMAIL, from: vault_npm_admin_email, path: /npm }
+      - { key: NPM_ADMIN_PASSWORD, from: vault_npm_admin_password, path: /npm }
+
+  - slug: pipelines
+    name: Pipelines
+    description: GitLab CI / Harbor push / signing — not day-to-day app envs
+    secrets:
+      - { key: HARBOR_USERNAME, from: vault_harbor_robot_user, path: /harbor }
+      - { key: HARBOR_PASSWORD, from: vault_harbor_robot_password, path: /harbor }
+      - { key: HARBOR_REGISTRY, from: vault_harbor_registry, path: /harbor }
+      - { key: GITLAB_RUNNER_TOKEN, from: vault_gitlab_runner_token, path: /gitlab, optional: true }
+      - { key: COSIGN_PASSWORD, from: vault_cosign_password, path: /cosign, optional: true }
+      - { key: COSIGN_PRIVATE_KEY, from: vault_cosign_private_key, path: /cosign, optional: true }
+      - { key: COSIGN_PUBLIC_KEY, from: vault_cosign_public_key, path: /cosign, optional: true }
+      # Only if a pipeline must kubectl/helm outside Argo GitOps:
+      - { key: KUBECONFIG, from: vault_pipeline_kubeconfig, path: /kubernetes, optional: true }
+
+  - slug: kubernetes
+    name: Kubernetes
+    description: In-cluster platform — synced by Infisical operator / ESO
+    secrets:
+      - { key: KEYCLOAK_ADMIN_USER, from: vault_keycloak_admin_user, path: /keycloak }
+      - { key: KEYCLOAK_ADMIN_PASSWORD, from: vault_keycloak_admin_password, path: /keycloak }
+      - { key: KEYCLOAK_DB_PASSWORD, from: vault_keycloak_db_password, path: /keycloak }
+      - { key: HARBOR_ADMIN_PASSWORD, from: vault_harbor_admin_password, path: /harbor }
+      - { key: SONARQUBE_DB_PASSWORD, from: vault_sonarqube_db_password, path: /sonarqube }
+      - { key: SONARQUBE_SYSTEM_PASSCODE, from: vault_sonarqube_system_passcode, path: /sonarqube }
+      - { key: GRAFANA_ADMIN_PASSWORD, from: vault_grafana_admin_password, path: /observability }
+      - {
+          key: LITELLM_MASTER_KEY,
+          from: vault_litellm_master_key,
+          path: /observability,
+          optional: true,
+        }
+
+  - slug: apps
+    name: Apps
+    description: Workload application secrets (AI clients, future SaaS apps)
+    secrets:
+      - { key: N8N_ENCRYPTION_KEY, from: vault_n8n_encryption_key, path: /n8n, optional: true }
+      - {
+          key: LIBRECHAT_CREDS_KEY,
+          from: vault_librechat_creds_key,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LIBRECHAT_CREDS_IV,
+          from: vault_librechat_creds_iv,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LIBRECHAT_JWT_SECRET,
+          from: vault_librechat_jwt_secret,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LIBRECHAT_JWT_REFRESH_SECRET,
+          from: vault_librechat_jwt_refresh_secret,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LIBRECHAT_MEILI_MASTER_KEY,
+          from: vault_librechat_meili_master_key,
+          path: /librechat,
+          optional: true,
+        }

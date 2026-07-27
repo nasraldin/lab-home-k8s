@@ -8,6 +8,7 @@ terraform/terraform.tfvars
 tfplan
 crash.log
 secrets.yml
+CREDENTIALS.md
 *.pem
 *.key
 kubeconfig

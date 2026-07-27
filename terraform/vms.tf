@@ -8,12 +8,15 @@ module "vm" {
   pool_id   = each.value.pool
   tags      = each.value.tags
 
-  cores        = each.value.cores
-  cpu_limit    = each.value.cpu_limit
-  memory       = each.value.memory
-  disk_gb      = each.value.disk_gb
-  data_disk_gb = try(each.value.data_disk_gb, null)
-  datastore_id = var.vm_datastore
+  cores          = each.value.cores
+  cpu_limit      = each.value.cpu_limit
+  memory         = each.value.memory
+  hugepages      = try(each.value.hugepages, null)
+  keep_hugepages = try(each.value.keep_hugepages, false)
+  numa           = try(each.value.numa, false)
+  disk_gb        = each.value.disk_gb
+  data_disk_gb   = try(each.value.data_disk_gb, null)
+  datastore_id   = var.vm_datastore
 
   bridge      = coalesce(each.value.bridge, var.network_bridge)
   mac_address = each.value.mac_address
@@ -31,8 +34,18 @@ module "vm" {
   startup_up_delay   = each.value.startup_up_delay
   startup_down_delay = each.value.startup_down_delay
 
+  hostpci = [
+    for name in each.value.hostpci_mappings : {
+      mapping = proxmox_hardware_mapping_pci.guest[name].name
+      pcie    = true
+      rombar  = true
+      xvga    = false
+    }
+  ]
+
   depends_on = [
     proxmox_virtual_environment_pool.pool,
     proxmox_node_disk_zfs.pool,
+    proxmox_hardware_mapping_pci.guest,
   ]
 }

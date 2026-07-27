@@ -41,6 +41,33 @@ variable "memory" {
   default     = 2048
 }
 
+variable "hugepages" {
+  description = <<-EOT
+    Proxmox hugepages size for guest RAM: "2" (2 MiB), "1024" (1 GiB), or "any".
+    Null = disabled. Prefer "2" for AI/GPU guests. Requires NUMA; disables ballooning.
+    May need root@pam privileges (API token can fail).
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.hugepages == null || contains(["2", "1024", "any"], var.hugepages)
+    error_message = "hugepages must be null, \"2\", \"1024\", or \"any\"."
+  }
+}
+
+variable "keep_hugepages" {
+  description = "Keep host hugepages allocated after VM shutdown (only when hugepages is set)"
+  type        = bool
+  default     = false
+}
+
+variable "numa" {
+  description = "Enable NUMA. Auto-enabled when hugepages is set; set true explicitly if needed without hugepages."
+  type        = bool
+  default     = false
+}
+
 variable "disk_gb" {
   type    = number
   default = 20
@@ -50,6 +77,21 @@ variable "data_disk_gb" {
   description = "Optional second disk (scsi1) for Longhorn; null = none"
   type        = number
   default     = null
+}
+
+variable "hostpci" {
+  description = <<-EOT
+    Optional host PCI devices to pass through (GPU, etc.).
+    Each entry needs a Proxmox hardware-mapping name (created in root module)
+    because API-token auth cannot set raw PCI ids.
+  EOT
+  type = list(object({
+    mapping = string
+    pcie    = optional(bool, true)
+    rombar  = optional(bool, true)
+    xvga    = optional(bool, false)
+  }))
+  default = []
 }
 
 variable "datastore_id" {
