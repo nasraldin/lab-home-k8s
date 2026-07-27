@@ -88,7 +88,7 @@
 - name: Point kubelet resolvConf at search-free file
   ansible.builtin.lineinfile:
     path: /var/lib/kubelet/config.yaml
-    regexp: '^resolvConf:'
-    line: 'resolvConf: /etc/kubernetes/pod-resolv.conf'
+    regexp: "^resolvConf:"
+    line: "resolvConf: /etc/kubernetes/pod-resolv.conf"
   when: "'k8s_nodes' in group_names"
   notify: Restart kubelet

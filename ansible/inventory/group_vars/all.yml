@@ -1,10 +1,10 @@
 ---
 lab_cidr: "192.168.68.0/22"
 lab_zone: "lab.nasraldin.com"
-lab_short_zone: "lab"  # Short LAN-only zone (gitlab.lab, grafana.lab, …)
+lab_short_zone: "lab" # Short LAN-only zone (gitlab.lab, grafana.lab, …)
 public_zone: "nasraldin.com"
 gateway_ip: "192.168.68.1"
-pve_ip: "192.168.68.2"  # Proxmox host on the new machine (not a guest VM)
+pve_ip: "192.168.68.2" # Proxmox host on the new machine (not a guest VM)
 adguard_ip: "192.168.68.10"
 technitium_ip: "192.168.68.10"
 
