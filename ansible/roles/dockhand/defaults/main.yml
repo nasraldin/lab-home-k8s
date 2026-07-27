@@ -1,0 +1,5 @@
+---
+dockhand_compose_dir: /opt/dockhand
+# Official image moved from ghcr.io/finsys/dockhand (denied) → Docker Hub fnsys/dockhand
+dockhand_image: "fnsys/dockhand:v1.0.38"
+dockhand_port: 3000

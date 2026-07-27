@@ -1,0 +1,16 @@
+services:
+  portainer:
+    image: {{ portainer_image }}
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "{{ portainer_https_port }}:9443"
+      - "{{ portainer_edge_port }}:8000"
+    environment:
+      PORTAINER_PUBLIC_URL: "{{ portainer_public_url }}"
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  portainer_data:

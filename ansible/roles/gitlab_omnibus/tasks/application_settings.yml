@@ -1,0 +1,48 @@
+# ApplicationSetting / root password live in the DB (not gitlab.rb).
+# gitlab-rails runner executes as user `git`, so scripts must be git-readable.
+- name: Stage GitLab ApplicationSetting script
+  ansible.builtin.template:
+    src: application_settings.rb.j2
+    dest: /etc/gitlab/ansible-application-settings.rb
+    owner: root
+    group: git
+    mode: "0640"
+  no_log: true
+
+- name: Apply GitLab ApplicationSettings and root password
+  ansible.builtin.command:
+    cmd: gitlab-rails runner /etc/gitlab/ansible-application-settings.rb
+  register: gitlab_application_settings
+  changed_when: "'CHANGED' in gitlab_application_settings.stdout"
+  failed_when: >-
+    gitlab_application_settings.rc != 0
+    or (
+      'CHANGED' not in gitlab_application_settings.stdout
+      and 'OK' not in gitlab_application_settings.stdout
+    )
+  no_log: true
+
+- name: Stage runner metadata reconcile script
+  ansible.builtin.template:
+    src: reconcile_runners.rb.j2
+    dest: /etc/gitlab/ansible-reconcile-runners.rb
+    owner: root
+    group: git
+    mode: "0640"
+
+- name: Reconcile runner tags and run_untagged from inventory
+  ansible.builtin.command:
+    cmd: gitlab-rails runner /etc/gitlab/ansible-reconcile-runners.rb
+  register: gitlab_runner_reconcile
+  changed_when: "'CHANGED' in gitlab_runner_reconcile.stdout"
+  failed_when: >-
+    gitlab_runner_reconcile.rc != 0
+    or (
+      'CHANGED' not in gitlab_runner_reconcile.stdout
+      and 'OK' not in gitlab_runner_reconcile.stdout
+    )
+
+- name: Remove legacy Web IDE settings script path
+  ansible.builtin.file:
+    path: /etc/gitlab/ansible-web-ide-settings.rb
+    state: absent

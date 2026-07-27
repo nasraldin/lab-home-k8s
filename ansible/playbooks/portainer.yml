@@ -1,0 +1,7 @@
+---
+- name: Portainer management CT
+  hosts: portainer_hosts
+  become: true
+  roles:
+    - guest_common
+    - portainer

@@ -1,0 +1,32 @@
+---
+- name: Require Hawser token
+  ansible.builtin.assert:
+    that:
+      - hawser_token is defined
+      - hawser_token | length > 0
+    fail_msg: >-
+      Missing hawser_token for {{ inventory_hostname }}. Run
+      scripts/dockhand-register-environments.py first, then this playbook.
+
+- name: Create Hawser directory
+  ansible.builtin.file:
+    path: "{{ hawser_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Deploy Hawser compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ hawser_compose_dir }}/compose.yaml"
+    mode: "0600"
+  no_log: true
+
+- name: Start Hawser agent
+  ansible.builtin.command:
+    cmd: docker compose -f {{ hawser_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ hawser_compose_dir }}"
+  register: hawser_up
+  changed_when: >-
+    'Started' in hawser_up.stderr or 'Created' in hawser_up.stderr
+    or 'Running' in hawser_up.stderr or 'Recreated' in hawser_up.stderr

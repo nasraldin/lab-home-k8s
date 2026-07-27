@@ -1,0 +1,165 @@
+---
+- name: Check if Technitium dns service unit exists
+  ansible.builtin.stat:
+    path: /etc/systemd/system/dns.service
+  register: technitium_unit
+
+- name: Install Technitium DNS Server (official script)
+  when: not technitium_unit.stat.exists
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -sSL https://download.technitium.com/dns/install.sh | bash
+  args:
+    creates: /etc/systemd/system/dns.service
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Ensure Technitium dns.service is running
+  ansible.builtin.systemd:
+    name: dns
+    state: started
+    enabled: true
+
+- name: Wait for Technitium web UI
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/"
+    status_code: [200, 302, 301]
+  register: technitium_http
+  retries: 40
+  delay: 3
+  until: technitium_http is succeeded
+
+# Login API returns token at top level (not under response).
+- name: Login with desired password
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/user/login?user=admin&pass={{ technitium_admin_password | urlencode }}"
+    method: GET
+    return_content: true
+    status_code: [200]
+  register: technitium_login_ok
+  failed_when: false
+  no_log: true
+
+- name: Login with default password if needed
+  when: (technitium_login_ok.json.status | default('')) != 'ok'
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/user/login?user=admin&pass=admin"
+    method: GET
+    return_content: true
+    status_code: [200]
+  register: technitium_login_default
+  failed_when: (technitium_login_default.json.status | default('')) != 'ok'
+  no_log: true
+
+- name: Set session token from desired-password login
+  when: (technitium_login_ok.json.status | default('')) == 'ok'
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_login_ok.json.token }}"
+    technitium_used_default_password: false
+  no_log: true
+
+- name: Set session token from default-password login
+  when: (technitium_login_ok.json.status | default('')) != 'ok'
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_login_default.json.token }}"
+    technitium_used_default_password: true
+  no_log: true
+
+- name: Change default admin password
+  when: technitium_used_default_password | bool
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/user/changePassword?pass=admin&newPass={{ technitium_admin_password | urlencode }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  register: technitium_pw
+  failed_when: (technitium_pw.json.status | default('')) != 'ok'
+  no_log: true
+
+- name: Re-login after password change
+  when: technitium_used_default_password | bool
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/user/login?user=admin&pass={{ technitium_admin_password | urlencode }}"
+    method: GET
+    return_content: true
+    status_code: [200]
+  register: technitium_login_new
+  failed_when: (technitium_login_new.json.status | default('')) != 'ok'
+  no_log: true
+
+- name: Refresh token after password change
+  when: technitium_used_default_password | bool
+  ansible.builtin.set_fact:
+    technitium_token: "{{ technitium_login_new.json.token }}"
+  no_log: true
+
+- name: List zones
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  register: technitium_zones
+  failed_when: (technitium_zones.json.status | default('')) != 'ok'
+  no_log: true
+
+- name: Build zone name list
+  ansible.builtin.set_fact:
+    technitium_zone_names: "{{ technitium_zones.json.response.zones | map(attribute='name') | map('regex_replace', '\\.$', '') | list }}"
+
+- name: Create lab.nasraldin.com zone if missing
+  when: lab_zone not in technitium_zone_names
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/create?zone={{ lab_zone | urlencode }}&type=Primary"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  register: technitium_zone_create_long
+  failed_when: >
+    (technitium_zone_create_long.json.status | default('')) != 'ok'
+    and ('exist' not in (technitium_zone_create_long.json.errorMessage | default('') | lower))
+  no_log: true
+
+- name: Create short lab zone if missing
+  when: lab_short_zone not in technitium_zone_names
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/create?zone={{ lab_short_zone | urlencode }}&type=Primary"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  register: technitium_zone_create_short
+  failed_when: >
+    (technitium_zone_create_short.json.status | default('')) != 'ok'
+    and ('exist' not in (technitium_zone_create_short.json.errorMessage | default('') | lower))
+  no_log: true
+
+- name: Add A records for Technitium zones
+  ansible.builtin.uri:
+    url: >-
+      {{
+        'http://127.0.0.1:' ~ (technitium_web_port | string)
+        ~ '/api/zones/records/add'
+        ~ '?domain=' ~ item.1.name ~ '.' ~ (item.0.zone | urlencode)
+        ~ '&zone=' ~ (item.0.zone | urlencode)
+        ~ '&type=A&ipAddress=' ~ item.1.value
+        ~ '&overwrite=true&ttl=300'
+      }}
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_token }}"
+    return_content: true
+    status_code: [200]
+  loop: "{{ technitium_managed_zones | subelements('records') }}"
+  register: technitium_rec
+  failed_when: >
+    (technitium_rec.json.status | default('')) != 'ok'
+    and ('exist' not in (technitium_rec.json.errorMessage | default('') | lower))
+  no_log: true

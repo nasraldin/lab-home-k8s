@@ -1,0 +1,200 @@
+---
+- name: Read AdGuard global protection status
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_global_status
+
+- name: Set AdGuard global protection state
+  when: (adguard_global_status.json.protection_enabled | bool) != (adguard_protection_enabled | bool)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/protection"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      enabled: "{{ adguard_protection_enabled | bool }}"
+    status_code: [200]
+  changed_when: true
+
+- name: Read AdGuard filtering policy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_filtering_status
+
+- name: Set AdGuard filtering and update interval
+  when: >-
+    (adguard_filtering_status.json.enabled | bool) != (adguard_filtering_enabled | bool)
+    or (adguard_filtering_status.json.interval | int) != (adguard_filters_update_interval_hours | int)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/config"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      enabled: "{{ adguard_filtering_enabled | bool }}"
+      interval: "{{ adguard_filters_update_interval_hours | int }}"
+    status_code: [200]
+  changed_when: true
+
+- name: Build current AdGuard blocklist URL list
+  ansible.builtin.set_fact:
+    adguard_current_filter_urls: >-
+      {{
+        adguard_filtering_status.json.filters
+        | default([])
+        | map(attribute='url')
+        | list
+      }}
+
+- name: Add missing AdGuard blocklists
+  when: item.url not in adguard_current_filter_urls
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/add_url"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      name: "{{ item.name }}"
+      url: "{{ item.url }}"
+      whitelist: false
+    status_code: [200]
+  loop: "{{ adguard_filter_lists }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: adguard_filters_added
+  changed_when: true
+
+- name: Refresh AdGuard filtering policy after additions
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_filtering_status_after_add
+
+- name: Enforce AdGuard blocklist names and enabled state
+  vars:
+    adguard_current_filter: >-
+      {{
+        adguard_filtering_status_after_add.json.filters
+        | selectattr('url', 'equalto', item.url)
+        | list
+        | first
+        | default({})
+      }}
+  when: >-
+    (adguard_current_filter.name | default('')) != item.name
+    or (adguard_current_filter.enabled | default(false) | bool) != (item.enabled | bool)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/set_url"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      url: "{{ item.url }}"
+      whitelist: false
+      data:
+        name: "{{ item.name }}"
+        url: "{{ item.url }}"
+        enabled: "{{ item.enabled | bool }}"
+    status_code: [200]
+  loop: "{{ adguard_filter_lists }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: adguard_filters_updated
+  changed_when: true
+
+- name: Refresh changed AdGuard blocklists
+  when: adguard_filters_added is changed or adguard_filters_updated is changed
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/filtering/refresh"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      whitelist: false
+    status_code: [200]
+  changed_when: true
+
+- name: Read AdGuard Safe Browsing status
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/safebrowsing/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_safebrowsing_status
+
+- name: Set AdGuard Safe Browsing state
+  when: >-
+    (adguard_safebrowsing_status.json.enabled | bool)
+    != (adguard_safebrowsing_enabled | bool)
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ adguard_web_port }}/control/safebrowsing/{{
+        'enable' if adguard_safebrowsing_enabled else 'disable'
+      }}
+    method: POST
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    status_code: [200]
+  changed_when: true
+
+- name: Read AdGuard parental-control status
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/parental/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_parental_status
+
+- name: Set AdGuard parental-control state
+  when: >-
+    (adguard_parental_status.json.enabled | bool)
+    != (adguard_parental_enabled | bool)
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ adguard_web_port }}/control/parental/{{
+        'enable' if adguard_parental_enabled else 'disable'
+      }}
+    method: POST
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    status_code: [200]
+  changed_when: true
+
+- name: Read AdGuard Safe Search status
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/safesearch/status"
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    return_content: true
+    status_code: [200]
+  register: adguard_safesearch_status
+
+- name: Set AdGuard Safe Search policy
+  when: adguard_safesearch_status.json != adguard_safe_search
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/safesearch/settings"
+    method: PUT
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body: "{{ adguard_safe_search }}"
+    status_code: [200]
+  changed_when: true

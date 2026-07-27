@@ -1,0 +1,29 @@
+---
+# Infisical self-host (Docker Compose) — application env-secrets plane.
+# App secrets in Infisical; infra/crypto patterns in homelab hub secret-ownership-map.
+
+infisical_compose_dir: /opt/infisical
+infisical_image: "infisical/infisical"
+infisical_image_tag: "v0.147.0"
+infisical_redis_image: "redis:7-alpine"
+
+infisical_http_port: 8090
+# LAN direct URL (NPM owns :80/:443 on docker-01 — do not bind Infisical to :80)
+infisical_site_url: "http://{{ ansible_host }}:{{ infisical_http_port }}"
+
+# Central Postgres (PgCat on database-01)
+infisical_pg_host: "192.168.68.21"
+infisical_pg_port: 6432
+
+infisical_encryption_key: "{{ vault_infisical_encryption_key }}"
+infisical_auth_secret: "{{ vault_infisical_auth_secret }}"
+infisical_postgres_user: "{{ vault_infisical_postgres_user | default('infisical') }}"
+infisical_postgres_password: "{{ vault_infisical_postgres_password }}"
+infisical_postgres_db: "{{ vault_infisical_postgres_db | default('infisical') }}"
+
+infisical_smtp_host: "{{ vault_infisical_smtp_host | default('') }}"
+infisical_smtp_port: "{{ vault_infisical_smtp_port | default('587') }}"
+infisical_smtp_username: "{{ vault_infisical_smtp_username | default('') }}"
+infisical_smtp_password: "{{ vault_infisical_smtp_password | default('') }}"
+infisical_smtp_from_address: "{{ vault_infisical_smtp_from_address | default('') }}"
+infisical_smtp_from_name: "{{ vault_infisical_smtp_from_name | default('Infisical') }}"

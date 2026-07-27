@@ -1,0 +1,26 @@
+[Unit]
+Description=MinIO AIStor Free object storage
+Documentation=https://min.io/docs/minio/linux/index.html
+Wants=network-online.target
+After=network-online.target
+AssertFileIsExecutable={{ aistor_bin_dir }}/minio
+
+[Service]
+Type=notify
+User={{ aistor_user }}
+Group={{ aistor_group }}
+EnvironmentFile=-{{ aistor_config_dir }}/aistor.env
+ExecStart={{ aistor_bin_dir }}/minio server {{ aistor_data_dir }} --address :{{ aistor_api_port }} --console-address :{{ aistor_console_port }} --license {{ aistor_license_dest }}
+Restart=always
+RestartSec=5
+TimeoutStopSec=120
+LimitNOFILE=1048576
+TasksMax=infinity
+OOMScoreAdjust=-1000
+ProtectSystem=full
+NoNewPrivileges=true
+PrivateTmp=true
+WorkingDirectory={{ aistor_home }}
+
+[Install]
+WantedBy=multi-user.target

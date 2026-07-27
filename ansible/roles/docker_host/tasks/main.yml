@@ -1,0 +1,83 @@
+---
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create Docker keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Remove legacy Docker sources.list entry
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
+- name: Add Docker apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types:
+      - deb
+    uris:
+      - https://download.docker.com/linux/debian
+    suites:
+      - "{{ ansible_facts['distribution_release'] }}"
+    components:
+      - stable
+    architectures:
+      - "{{ docker_host_apt_arch }}"
+    signed_by: /etc/apt/keyrings/docker.asc
+    install_python_debian: true
+    state: present
+
+- name: Install Docker Engine + Compose + Buildx
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_host_users }}"
+
+- name: Ensure /opt exists
+  ansible.builtin.file:
+    path: "{{ docker_host_opt_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure shared Docker network for reverse-proxy apps
+  ansible.builtin.command:
+    cmd: docker network create {{ docker_host_proxy_network }}
+  register: docker_host_proxy_net
+  changed_when: docker_host_proxy_net.rc == 0
+  failed_when: >-
+    docker_host_proxy_net.rc != 0
+    and ('already exists' not in docker_host_proxy_net.stderr)
+    and ('already exists' not in (docker_host_proxy_net.stdout | default('')))

@@ -1,0 +1,213 @@
+---
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Install Docker official GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Configure Docker APT repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types:
+      - deb
+    uris:
+      - https://download.docker.com/linux/debian
+    suites:
+      - "{{ ansible_facts['distribution_release'] }}"
+    components:
+      - stable
+    signed_by: /etc/apt/keyrings/docker.asc
+    state: present
+
+- name: Install Docker Engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Enable Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Install GitLab Runner repository setup script
+  ansible.builtin.get_url:
+    url: https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh
+    dest: /tmp/gitlab-runner-repo.sh
+    mode: "0755"
+
+- name: Add GitLab Runner APT repository
+  ansible.builtin.command:
+    cmd: /tmp/gitlab-runner-repo.sh
+    creates: /etc/apt/sources.list.d/runner_gitlab-runner.list
+
+- name: Install GitLab Runner package
+  ansible.builtin.apt:
+    name: gitlab-runner
+    state: present
+    update_cache: true
+
+- name: Add gitlab-runner user to docker group
+  ansible.builtin.user:
+    name: gitlab-runner
+    groups:
+      - docker
+    append: true
+  register: gitlab_runner_docker_group
+
+- name: Enable GitLab Runner service
+  ansible.builtin.systemd:
+    name: gitlab-runner
+    enabled: true
+    state: started
+
+- name: Restart gitlab-runner after docker group change
+  when: gitlab_runner_docker_group.changed
+  ansible.builtin.systemd:
+    name: gitlab-runner
+    state: restarted
+
+- name: Check whether runner is already registered
+  ansible.builtin.stat:
+    path: "{{ gitlab_runner_config_path }}"
+  register: gitlab_runner_config
+
+- name: Detect existing runner by name in config
+  ansible.builtin.command:
+    cmd: 'grep -F ''name = "{{ gitlab_runner_name }}"'' {{ gitlab_runner_config_path }}'
+  register: gitlab_runner_named
+  changed_when: false
+  failed_when: false
+  when: gitlab_runner_config.stat.exists
+
+- name: Fetch minted runner token from gitlab-01 when needed
+  when: >-
+    (not gitlab_runner_config.stat.exists)
+    or (gitlab_runner_named.rc is defined and gitlab_runner_named.rc != 0)
+  ansible.builtin.slurp:
+    src: "{{ gitlab_runner_minted_token_path }}"
+  delegate_to: gitlab-01
+  register: gitlab_runner_minted_slurp
+  failed_when: false
+  no_log: true
+
+- name: Prefer minted runner token over secrets.yml
+  when: >-
+    gitlab_runner_minted_slurp.content is defined
+    and (gitlab_runner_minted_slurp.content | length > 0)
+  ansible.builtin.set_fact:
+    gitlab_runner_token: "{{ gitlab_runner_minted_slurp.content | b64decode | trim }}"
+  no_log: true
+
+- name: Register Docker executor runner
+  when:
+    - gitlab_runner_token is defined
+    - gitlab_runner_token | length > 0
+    - "'replace-with' not in (gitlab_runner_token | string)"
+    - >-
+      (not gitlab_runner_config.stat.exists)
+      or (gitlab_runner_named.rc is defined and gitlab_runner_named.rc != 0)
+  no_log: true
+  ansible.builtin.command:
+    argv:
+      - gitlab-runner
+      - register
+      - --non-interactive
+      - --url
+      - "{{ gitlab_runner_url }}"
+      - --token
+      - "{{ gitlab_runner_token }}"
+      - --name
+      - "{{ gitlab_runner_name }}"
+      - --executor
+      - "{{ gitlab_runner_executor }}"
+      - --docker-image
+      - "{{ gitlab_runner_docker_image }}"
+
+- name: Warn when runner token is missing
+  when: >-
+    gitlab_runner_token is not defined
+    or gitlab_runner_token | length == 0
+    or 'replace-with' in (gitlab_runner_token | string)
+  ansible.builtin.debug:
+    msg: >-
+      No runner token for {{ inventory_hostname }}. Ensure gitlab.yml mint play
+      ran, or set vault_gitlab_runner_tokens.{{ inventory_hostname }} in secrets.yml.
+
+- name: Verify runner status
+  ansible.builtin.command:
+    cmd: gitlab-runner status
+  register: gitlab_runner_status
+  changed_when: false
+  failed_when: gitlab_runner_status.rc != 0
+
+- name: Set global concurrent job limit
+  ansible.builtin.lineinfile:
+    path: "{{ gitlab_runner_config_path }}"
+    regexp: '^concurrent\s*='
+    line: "concurrent = {{ gitlab_runner_concurrent }}"
+  notify: Restart GitLab Runner
+
+- name: Enable GitLab Runner Prometheus metrics listener
+  ansible.builtin.lineinfile:
+    path: "{{ gitlab_runner_config_path }}"
+    regexp: '^listen_address\s*='
+    line: 'listen_address = "{{ gitlab_runner_metrics_listen_address }}"'
+    insertafter: '^concurrent\s*='
+  notify: Restart GitLab Runner
+
+- name: Install runner cache fixer script
+  when: gitlab_runner_cache_enabled | bool
+  ansible.builtin.copy:
+    src: fix_runner_cache.py
+    dest: /usr/local/sbin/fix-gitlab-runner-cache.py
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Ensure S3 distributed cache in runner config
+  when: gitlab_runner_cache_enabled | bool
+  ansible.builtin.command:
+    argv:
+      - /usr/local/sbin/fix-gitlab-runner-cache.py
+      - --config
+      - "{{ gitlab_runner_config_path }}"
+      - --server
+      - "{{ gitlab_runner_cache_s3_server }}"
+      - --access-key
+      - "{{ gitlab_runner_cache_s3_access_key }}"
+      - --secret-key
+      - "{{ gitlab_runner_cache_s3_secret_key }}"
+      - --bucket
+      - "{{ gitlab_runner_cache_s3_bucket }}"
+      - --location
+      - "{{ gitlab_runner_cache_s3_bucket_location }}"
+      - --insecure
+      - "{{ gitlab_runner_cache_s3_insecure | bool | lower }}"
+  register: gitlab_runner_cache_cfg
+  changed_when: "'changed' in gitlab_runner_cache_cfg.stdout"
+  no_log: true
+  notify: Restart GitLab Runner

@@ -1,0 +1,5 @@
+---
+k8s_kubeadm_config_path: /etc/kubernetes/kubeadm-config.yaml
+k8s_first_control_plane: k8s-cp-01
+k8s_admin_user: nasr
+k8s_join_cache_dir: "{{ playbook_dir }}/../.cache"

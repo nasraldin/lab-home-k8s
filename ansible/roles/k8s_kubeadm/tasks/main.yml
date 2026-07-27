@@ -1,0 +1,92 @@
+---
+# Idempotent single control-plane kubeadm bootstrap.
+
+- name: Deploy kubeadm ClusterConfiguration
+  ansible.builtin.template:
+    src: kubeadm-config.yaml.j2
+    dest: "{{ k8s_kubeadm_config_path }}"
+    mode: "0600"
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Check if cluster already initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: k8s_admin_conf
+
+- name: Initialize control plane
+  ansible.builtin.command: >
+    kubeadm init --config={{ k8s_kubeadm_config_path }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+  when:
+    - inventory_hostname == k8s_first_control_plane
+    - not k8s_admin_conf.stat.exists
+
+- name: Ensure admin kubeconfig directory for {{ k8s_admin_user }}
+  ansible.builtin.file:
+    path: "/home/{{ k8s_admin_user }}/.kube"
+    state: directory
+    owner: "{{ k8s_admin_user }}"
+    group: "{{ k8s_admin_user }}"
+    mode: "0700"
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Install admin kubeconfig for {{ k8s_admin_user }}
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ k8s_admin_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ k8s_admin_user }}"
+    group: "{{ k8s_admin_user }}"
+    mode: "0600"
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Create worker join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: k8s_join_command_raw
+  changed_when: false
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Publish join facts from control plane
+  ansible.builtin.set_fact:
+    k8s_join_command: "{{ k8s_join_command_raw.stdout | trim }}"
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Ensure local join-token cache directory on controller
+  ansible.builtin.file:
+    path: "{{ k8s_join_cache_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Persist join helpers locally (gitignored)
+  ansible.builtin.copy:
+    dest: "{{ k8s_join_cache_dir }}/join.yml"
+    mode: "0600"
+    content: |
+      k8s_join_command: {{ k8s_join_command | to_json }}
+  delegate_to: localhost
+  become: false
+  when: inventory_hostname == k8s_first_control_plane
+
+- name: Import join facts on workers
+  ansible.builtin.set_fact:
+    k8s_join_command: "{{ hostvars[k8s_first_control_plane].k8s_join_command }}"
+  when: inventory_hostname in groups['k8s_workers']
+
+- name: Check if node already joined
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: k8s_kubelet_conf
+
+- name: Join workers
+  ansible.builtin.shell: |
+    set -euo pipefail
+    {{ k8s_join_command }}
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when:
+    - inventory_hostname in groups['k8s_workers']
+    - not k8s_kubelet_conf.stat.exists

@@ -1,0 +1,112 @@
+---
+# Shared base for cloud guests (Debian/Ubuntu apt + Fedora/RHEL dnf).
+# podman-01 is Fedora by design (terraform image fedora-cloud).
+# Unprivileged LXC (e.g. dockhand) cannot adjtimex — skip chrony / QGA.
+
+- name: Detect container guest
+  ansible.builtin.set_fact:
+    guest_is_container: >-
+      {{ ansible_facts['virtualization_type'] | default('')
+         in ['lxc', 'docker', 'openvz', 'podman'] }}
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure /etc/hosts has short hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s+'
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present
+
+- name: Install base packages (Debian family)
+  ansible.builtin.apt:
+    name: "{{ guest_common_packages_debian }}"
+    state: present
+    update_cache: true
+  when: ansible_facts['os_family'] == "Debian"
+  vars:
+    guest_common_packages_debian: >-
+      {{
+        ['ca-certificates', 'curl', 'jq', 'ufw', 'dnsutils']
+        + ([] if guest_is_container | bool else ['chrony', 'unattended-upgrades', 'apt-listchanges', 'qemu-guest-agent'])
+      }}
+
+- name: Install base packages (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ guest_common_packages_redhat }}"
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
+  vars:
+    guest_common_packages_redhat: >-
+      {{
+        ['ca-certificates', 'curl', 'jq', 'ufw', 'bind-utils', 'iptables-nft']
+        + ([] if guest_is_container | bool else ['chrony', 'qemu-guest-agent'])
+      }}
+
+- name: Enable chrony
+  ansible.builtin.service:
+    name: "{{ 'chronyd' if ansible_facts['os_family'] == 'RedHat' else 'chrony' }}"
+    state: started
+    enabled: true
+  when: not (guest_is_container | bool)
+
+- name: Disable chrony on containers (no CAP_SYS_TIME / adjtimex)
+  ansible.builtin.service:
+    name: "{{ 'chronyd' if ansible_facts['os_family'] == 'RedHat' else 'chrony' }}"
+    state: stopped
+    enabled: false
+  failed_when: false
+  when: guest_is_container | bool
+
+- name: Enable qemu-guest-agent
+  ansible.builtin.service:
+    name: qemu-guest-agent
+    state: started
+    enabled: true
+  when: not (guest_is_container | bool)
+
+- name: Configure unattended upgrades (Debian family)
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - not (guest_is_container | bool)
+
+- name: Allow SSH through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ guest_ssh_port }}"
+    proto: tcp
+    from_ip: "{{ lab_cidr }}"
+    comment: lab-ssh
+  when: guest_ufw_enabled | bool
+
+- name: Apply extra UFW rules
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    from_ip: "{{ item.from_ip | default(lab_cidr) }}"
+    comment: "{{ item.comment | default('') }}"
+  loop: "{{ guest_extra_ufw_rules }}"
+  when: guest_ufw_enabled | bool
+
+- name: Set UFW forward/routed default policy
+  community.general.ufw:
+    direction: routed
+    default: "{{ guest_ufw_forward_policy }}"
+  when: guest_ufw_enabled | bool
+
+- name: Enable UFW (deny incoming by default)
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    policy: deny
+  when: guest_ufw_enabled | bool

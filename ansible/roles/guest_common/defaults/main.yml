@@ -1,0 +1,12 @@
+---
+# roles/guest_common
+guest_ufw_enabled: true
+guest_ssh_port: 22
+guest_extra_ufw_rules: []
+# Podman/Docker published ports DNAT into a bridge → need allow on UFW routed/FORWARD
+guest_ufw_forward_policy: deny
+guest_claim_dns_port: false
+guest_bootstrap_dns: "1.1.1.1"
+guest_local_dns_resolver: ""
+guest_local_dns_ready_marker: ""
+# list of {port, proto, comment} — role appends DNS/UI rules from other roles via host vars

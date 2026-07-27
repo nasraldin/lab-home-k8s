@@ -1,0 +1,44 @@
+include:
+  - project: homelab/pipeline-templates
+    ref: main
+    file:
+      - templates/lint/yaml.yml
+      - templates/lint/terraform.yml
+      - templates/lint/ansible.yml
+      - templates/lint/shell.yml
+      - templates/terraform/plan.yml
+      - templates/terraform/apply.yml
+      - templates/terraform/destroy.yml
+      - templates/ansible/check.yml
+      - templates/ansible/apply.yml
+
+stages:
+  - .pre
+  - lint
+  - plan
+  - validate
+  - apply
+
+variables:
+  TF_TARGET_GUESTS:
+    value: ""
+    description: "Comma-separated VM keys (e.g. infra-01,docker-01)"
+  ANSIBLE_PLAYBOOK:
+    value: "playbooks/infra.yml"
+    description: "Ansible playbook path under ansible/"
+  ANSIBLE_LIMIT:
+    value: ""
+    description: "Inventory limit (e.g. infra-01)"
+
+detect-services:
+  stage: .pre
+  image: alpine:3.21
+  script:
+    - apk add --no-cache git bash
+    - bash scripts/detect-changed-services.sh maps/lab-home-k8s-services.yml > changed-services.env || true
+  artifacts:
+    reports:
+      dotenv: changed-services.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

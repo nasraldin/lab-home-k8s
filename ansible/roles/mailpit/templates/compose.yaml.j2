@@ -1,0 +1,20 @@
+services:
+  mailpit:
+    image: {{ mailpit_image }}
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - "{{ mailpit_ui_port }}:8025"
+      - "{{ mailpit_smtp_port }}:1025"
+    volumes:
+      - mailpit_data:/data
+    networks:
+      - proxy
+
+volumes:
+  mailpit_data:
+
+networks:
+  proxy:
+    external: true
+    name: proxy

@@ -1,0 +1,10 @@
+---
+- name: Docker app host (NPM, it-tools, mailpit)
+  hosts: docker-01
+  become: true
+  roles:
+    - guest_common
+    - docker_host
+    - npm
+    - it_tools
+    - mailpit

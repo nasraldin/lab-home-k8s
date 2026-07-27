@@ -1,0 +1,42 @@
+# Infisical on docker-01 — Postgres via central PgCat (database-01).
+# Local Redis only. Host port is {{ infisical_http_port }} (NPM owns :80/:443).
+
+services:
+  backend:
+    container_name: infisical-backend
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_started
+    image: {{ infisical_image }}:{{ infisical_image_tag }}
+    pull_policy: always
+    env_file: .env
+    ports:
+      - "{{ infisical_http_port }}:8080"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - proxy
+      - infisical
+
+  redis:
+    image: {{ infisical_redis_image }}
+    container_name: infisical-redis
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      - infisical
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  infisical:
+  proxy:
+    external: true
+    name: proxy

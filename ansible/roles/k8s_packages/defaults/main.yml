@@ -1,0 +1,5 @@
+---
+k8s_apt_keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+k8s_apt_list: /etc/apt/sources.list.d/kubernetes.list
+k8s_version: "1.36"
+k8s_version_package: "1.36.*"

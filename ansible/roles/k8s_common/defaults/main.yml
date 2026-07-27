@@ -1,0 +1,7 @@
+---
+k8s_common_packages:
+  - ca-certificates
+  - curl
+  - apt-transport-https
+  - gnupg
+  - jq

@@ -1,0 +1,33 @@
+---
+adguard_install_dir: /opt/AdGuardHome
+adguard_web_port: 3000
+adguard_dns_port: 53
+adguard_version: v0.107.78
+adguard_github_repo: AdguardTeam/AdGuardHome
+
+# Reproducible filtering and child-safety policy.  Manage these through the
+# AdGuard API in tasks/policy.yml; never replace AdGuardHome.yaml directly.
+adguard_protection_enabled: true
+adguard_filtering_enabled: true
+adguard_filters_update_interval_hours: 24
+adguard_safebrowsing_enabled: true
+adguard_parental_enabled: true
+adguard_safe_search:
+  enabled: true
+  bing: true
+  duckduckgo: true
+  ecosia: true
+  google: true
+  pixabay: true
+  yandex: true
+  youtube: true
+
+# Keep this list deliberately small.  Large overlapping lists increase memory
+# use and false positives without reliably blocking first-party ads.
+adguard_filter_lists:
+  - name: AdGuard DNS filter
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    enabled: true
+  - name: HaGeZi Multi NORMAL
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/multi.txt
+    enabled: true

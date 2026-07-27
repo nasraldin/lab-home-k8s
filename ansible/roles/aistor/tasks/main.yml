@@ -1,0 +1,269 @@
+---
+- name: Require AIStor secrets and license
+  ansible.builtin.assert:
+    that:
+      - vault_aistor_root_user is defined
+      - vault_aistor_root_user | length > 0
+      - vault_aistor_root_password is defined
+      - vault_aistor_root_password | length >= 12
+      - "'replace-with' not in vault_aistor_root_password"
+      - vault_gitlab_s3_access_key is defined
+      - vault_gitlab_s3_secret_key is defined
+      - vault_gitlab_s3_secret_key | length >= 12
+    fail_msg: >-
+      Set vault_aistor_root_* and vault_gitlab_s3_* in secrets.yml and place
+      the AIStor license at files/aistor/minio.license
+  no_log: true
+
+- name: Check AIStor license on control node
+  ansible.builtin.stat:
+    path: "{{ aistor_license_src }}"
+  delegate_to: localhost
+  become: false
+  register: aistor_license_stat
+
+- name: Fail when AIStor license is missing
+  ansible.builtin.assert:
+    that:
+      - aistor_license_stat.stat.exists
+      - aistor_license_stat.stat.size | int > 0
+    fail_msg: >-
+      Copy your AIStor Free license to {{ aistor_license_src }}
+      (from https://min.io/download — never commit it).
+
+- name: Create AIStor system group
+  ansible.builtin.group:
+    name: "{{ aistor_group }}"
+    system: true
+
+- name: Create AIStor system user
+  ansible.builtin.user:
+    name: "{{ aistor_user }}"
+    group: "{{ aistor_group }}"
+    home: "{{ aistor_home }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+
+- name: Create AIStor directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ aistor_user }}"
+    group: "{{ aistor_group }}"
+    mode: "0750"
+  loop:
+    - "{{ aistor_home }}"
+    - "{{ aistor_data_dir }}"
+    - "{{ aistor_config_dir }}"
+
+- name: Install AIStor server binary
+  ansible.builtin.get_url:
+    url: "{{ aistor_download_url }}"
+    dest: "{{ aistor_bin_dir }}/minio"
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+  notify: Restart AIStor
+
+- name: Install MinIO client (mc)
+  ansible.builtin.get_url:
+    url: "{{ aistor_mc_download_url }}"
+    dest: "{{ aistor_bin_dir }}/mc"
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+
+- name: Install AIStor license
+  ansible.builtin.copy:
+    src: "{{ aistor_license_src }}"
+    dest: "{{ aistor_license_dest }}"
+    owner: "{{ aistor_user }}"
+    group: "{{ aistor_group }}"
+    mode: "0600"
+  notify: Restart AIStor
+
+- name: Deploy AIStor environment file
+  ansible.builtin.template:
+    src: aistor.env.j2
+    dest: "{{ aistor_config_dir }}/aistor.env"
+    owner: root
+    group: "{{ aistor_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart AIStor
+
+- name: Deploy AIStor systemd unit
+  ansible.builtin.template:
+    src: aistor.service.j2
+    dest: /etc/systemd/system/aistor.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart AIStor
+
+- name: Enable and start AIStor
+  ansible.builtin.systemd:
+    name: aistor
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for AIStor S3 API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ aistor_api_port }}/minio/health/live"
+    method: GET
+    status_code: [200]
+  register: aistor_health
+  retries: 36
+  delay: 5
+  until: aistor_health.status | default(0) == 200
+
+- name: Configure local mc alias
+  ansible.builtin.command:
+    cmd: >-
+      mc alias set local http://127.0.0.1:{{ aistor_api_port }}
+      {{ aistor_root_user | quote }} {{ aistor_root_password | quote }}
+  no_log: true
+  changed_when: false
+
+- name: Ensure AIStor buckets exist
+  ansible.builtin.command:
+    cmd: "mc mb --ignore-existing local/{{ item.name }}"
+  loop: "{{ aistor_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false
+
+- name: Enable versioning on selected buckets
+  when: item.versioning | default(false) | bool
+  ansible.builtin.command:
+    cmd: "mc version enable local/{{ item.name }}"
+  loop: "{{ aistor_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false
+
+- name: Create GitLab S3 service account policy file
+  ansible.builtin.copy:
+    dest: /tmp/gitlab-s3-policy.json
+    mode: "0600"
+    content: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": ["s3:*"],
+            "Resource": [
+              "arn:aws:s3:::gitlab-*",
+              "arn:aws:s3:::gitlab-*/*",
+              "arn:aws:s3:::runner-cache",
+              "arn:aws:s3:::runner-cache/*"
+            ]
+          }
+        ]
+      }
+
+- name: Apply GitLab S3 policy
+  ansible.builtin.command:
+    cmd: "mc admin policy create local {{ aistor_gitlab_policy_name }} /tmp/gitlab-s3-policy.json"
+  register: aistor_policy
+  changed_when: "'Created' in aistor_policy.stdout or 'created' in aistor_policy.stdout | lower"
+  failed_when: >-
+    aistor_policy.rc != 0
+    and ('already exists' not in aistor_policy.stderr | lower)
+    and ('already exists' not in aistor_policy.stdout | lower)
+
+- name: Ensure GitLab S3 user exists
+  ansible.builtin.command:
+    cmd: >-
+      mc admin user add local {{ aistor_gitlab_access_key | quote }}
+      {{ aistor_gitlab_secret_key | quote }}
+  no_log: true
+  register: aistor_user_add
+  changed_when: aistor_user_add.rc == 0
+  failed_when: >-
+    aistor_user_add.rc != 0
+    and ('already' not in aistor_user_add.stderr | lower)
+    and ('exists' not in aistor_user_add.stderr | lower)
+
+- name: Attach GitLab policy to S3 user
+  ansible.builtin.command:
+    cmd: >-
+      mc admin policy attach local {{ aistor_gitlab_policy_name }}
+      --user {{ aistor_gitlab_access_key | quote }}
+  no_log: true
+  register: aistor_attach
+  changed_when: aistor_attach.rc == 0
+  failed_when: >-
+    aistor_attach.rc != 0
+    and ('already' not in aistor_attach.stderr | lower)
+
+- name: Create Elasticsearch S3 snapshot policy file
+  ansible.builtin.copy:
+    dest: /tmp/elasticsearch-s3-policy.json
+    mode: "0600"
+    content: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": ["s3:*"],
+            "Resource": [
+              "arn:aws:s3:::{{ aistor_elastic_bucket }}",
+              "arn:aws:s3:::{{ aistor_elastic_bucket }}/*"
+            ]
+          }
+        ]
+      }
+
+- name: Apply Elasticsearch S3 policy
+  ansible.builtin.command:
+    cmd: >-
+      mc admin policy create local {{ aistor_elastic_policy_name }}
+      /tmp/elasticsearch-s3-policy.json
+  register: aistor_es_policy
+  changed_when: "'Created' in aistor_es_policy.stdout or 'created' in aistor_es_policy.stdout | lower"
+  failed_when: >-
+    aistor_es_policy.rc != 0
+    and ('already exists' not in aistor_es_policy.stderr | lower)
+    and ('already exists' not in aistor_es_policy.stdout | lower)
+
+- name: Ensure Elasticsearch S3 user exists
+  ansible.builtin.command:
+    cmd: >-
+      mc admin user add local {{ aistor_elastic_access_key | quote }}
+      {{ aistor_elastic_secret_key | quote }}
+  no_log: true
+  register: aistor_es_user_add
+  changed_when: aistor_es_user_add.rc == 0
+  failed_when: >-
+    aistor_es_user_add.rc != 0
+    and ('already' not in aistor_es_user_add.stderr | lower)
+    and ('exists' not in aistor_es_user_add.stderr | lower)
+
+- name: Attach Elasticsearch policy to S3 user
+  ansible.builtin.command:
+    cmd: >-
+      mc admin policy attach local {{ aistor_elastic_policy_name }}
+      --user {{ aistor_elastic_access_key | quote }}
+  no_log: true
+  register: aistor_es_attach
+  changed_when: aistor_es_attach.rc == 0
+  failed_when: >-
+    aistor_es_attach.rc != 0
+    and ('already' not in aistor_es_attach.stderr | lower)
+
+- name: Remove temporary policy files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/gitlab-s3-policy.json
+    - /tmp/elasticsearch-s3-policy.json

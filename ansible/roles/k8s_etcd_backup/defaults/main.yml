@@ -1,0 +1,5 @@
+---
+etcd_backup_dir: /var/backups/etcd
+etcd_backup_retain_days: 7
+etcd_backup_hour: "2"
+etcd_backup_minute: "15"

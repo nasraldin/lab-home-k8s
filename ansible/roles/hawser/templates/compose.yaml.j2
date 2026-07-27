@@ -1,0 +1,17 @@
+services:
+  hawser:
+    image: {{ hawser_image }}
+    container_name: hawser
+    restart: unless-stopped
+    environment:
+      DOCKHAND_SERVER_URL: "{{ hawser_dockhand_server_url }}"
+      TOKEN: "{{ hawser_token }}"
+      AGENT_NAME: "{{ hawser_agent_name }}"
+      DOCKER_SOCKET: "{{ hawser_docker_socket }}"
+      LOG_LEVEL: info
+    volumes:
+      - {{ hawser_docker_socket }}:{{ hawser_docker_socket }}
+      - hawser_stacks:/data/stacks
+
+volumes:
+  hawser_stacks:

@@ -1,0 +1,20 @@
+---
+- name: Create it-tools directory
+  ansible.builtin.file:
+    path: "{{ it_tools_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Deploy it-tools compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ it_tools_compose_dir }}/compose.yaml"
+    mode: "0640"
+
+- name: Start it-tools
+  ansible.builtin.command:
+    cmd: docker compose -f {{ it_tools_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ it_tools_compose_dir }}"
+  register: itt_up
+  changed_when: "'Started' in itt_up.stderr or 'Created' in itt_up.stderr or 'Running' in itt_up.stderr"

@@ -1,0 +1,18 @@
+---
+- name: Core infrastructure
+  ansible.builtin.import_playbook: infra.yml
+
+- name: GitLab platform
+  ansible.builtin.import_playbook: gitlab.yml
+
+- name: Docker utility host
+  ansible.builtin.import_playbook: docker-hosts.yml
+
+- name: Dockhand management
+  ansible.builtin.import_playbook: dockhand.yml
+
+- name: Portainer management
+  ansible.builtin.import_playbook: portainer.yml
+
+- name: Kubernetes cluster
+  ansible.builtin.import_playbook: k8s.yml

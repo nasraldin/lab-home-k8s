@@ -1,0 +1,32 @@
+---
+- name: Ensure Docker available on Dockhand host
+  ansible.builtin.include_role:
+    name: docker_host
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Create Dockhand directory
+  ansible.builtin.file:
+    path: "{{ dockhand_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Deploy Dockhand compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ dockhand_compose_dir }}/compose.yaml"
+    mode: "0640"
+
+- name: Start Dockhand
+  ansible.builtin.command:
+    cmd: docker compose -f {{ dockhand_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ dockhand_compose_dir }}"
+  register: dh_up
+  changed_when: "'Started' in dh_up.stderr or 'Created' in dh_up.stderr or 'Running' in dh_up.stderr"
+
+- name: Hint — register environments without UI
+  ansible.builtin.debug:
+    msg: >-
+      After Dockhand is up, register lab Docker hosts without the UI:
+      ./scripts/dockhand-register-environments.py &&
+      ansible-playbook playbooks/dockhand-agents.yml

@@ -1,0 +1,41 @@
+# Managed by ansible-lab gitlab_omnibus — reconcile runner tags / untagged.
+# Matches Ci::Runner by description (gitlab_runner_name from inventory).
+desired = [
+{% for host in groups['runners'] | default([]) %}
+  {
+    'description' => {{ hostvars[host].gitlab_runner_name | default(host ~ '-docker') | to_json }},
+    'tags' => {{ hostvars[host].gitlab_runner_tags | default([host]) | to_json }},
+    'run_untagged' => {{ hostvars[host].gitlab_runner_run_untagged | default(true) | bool | lower }},
+  },
+{% endfor %}
+].freeze
+
+changed = false
+
+desired.each do |want|
+  runners = Ci::Runner.where(description: want['description']).to_a
+  next if runners.empty?
+
+  runners.each do |runner|
+    tag_list = want['tags'].map(&:to_s).sort
+    current_tags = runner.tag_list.map(&:to_s).sort
+    needs = false
+
+    if current_tags != tag_list
+      runner.tag_list = tag_list
+      needs = true
+    end
+
+    if runner.run_untagged != want['run_untagged']
+      runner.run_untagged = want['run_untagged']
+      needs = true
+    end
+
+    if needs
+      runner.save!
+      changed = true
+    end
+  end
+end
+
+puts(changed ? 'CHANGED' : 'OK')

@@ -1,0 +1,7 @@
+---
+- name: Dockhand management CT
+  hosts: dockhand_hosts
+  become: true
+  roles:
+    - guest_common
+    - dockhand

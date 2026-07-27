@@ -1,0 +1,36 @@
+---
+gitlab_external_url: "https://gitlab.nasraldin.com"
+gitlab_listen_port: 80
+gitlab_package_name: gitlab-ce
+gitlab_omnibus_config_path: /etc/gitlab/gitlab.rb
+gitlab_puma_worker_processes: 2
+gitlab_sidekiq_max_concurrency: 10
+gitlab_prometheus_enable: false
+gitlab_exporter_enable: true
+gitlab_exporter_listen_address: "0.0.0.0"
+gitlab_workhorse_prometheus_listen_addr: "0.0.0.0:9229"
+gitlab_gitaly_prometheus_listen_addr: "0.0.0.0:9236"
+gitlab_sidekiq_metrics_enabled: true
+gitlab_sidekiq_listen_address: "0.0.0.0"
+gitlab_sidekiq_listen_port: 8082
+gitlab_registry_enabled: true
+gitlab_registry_external_url: "https://registry.nasraldin.com"
+gitlab_registry_listen_port: 5050
+gitlab_registry_debug_addr: "0.0.0.0:5001"
+gitlab_backup_keep_time: 259200
+
+gitlab_signup_enabled: false
+gitlab_auto_devops_enabled: false
+gitlab_default_branch_name: "main"
+gitlab_enabled_git_access_protocol: "http"
+gitlab_allow_local_requests_from_web_hooks_and_services: true
+gitlab_vscode_extension_marketplace_enabled: true
+gitlab_web_ide_extension_host_domain: "cdn.web-ide.gitlab-static.net"
+gitlab_web_ide_single_origin_fallback: false
+
+gitlab_object_store_enabled: true
+gitlab_object_store_endpoint: "http://192.168.68.10:9000"
+gitlab_object_store_access_key: "{{ vault_gitlab_s3_access_key }}"
+gitlab_object_store_secret_key: "{{ vault_gitlab_s3_secret_key }}"
+
+gitlab_root_password: "{{ vault_gitlab_root_password }}"

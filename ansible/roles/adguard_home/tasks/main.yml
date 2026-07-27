@@ -1,0 +1,174 @@
+---
+- name: Create AdGuard install directory
+  ansible.builtin.file:
+    path: "{{ adguard_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create versioned AdGuard download directory
+  ansible.builtin.file:
+    path: "/tmp/adguardhome-{{ adguard_version }}"
+    state: directory
+    mode: "0755"
+
+- name: Download AdGuard Home
+  ansible.builtin.get_url:
+    url: "https://github.com/{{ adguard_github_repo }}/releases/download/{{ adguard_version }}/AdGuardHome_linux_amd64.tar.gz"
+    dest: "/tmp/adguardhome-{{ adguard_version }}/AdGuardHome_linux_amd64.tar.gz"
+    checksum: "sha256:https://github.com/{{ adguard_github_repo }}/releases/download/{{ adguard_version }}/checksums.txt"
+    mode: "0644"
+
+- name: Extract AdGuard Home
+  ansible.builtin.unarchive:
+    src: "/tmp/adguardhome-{{ adguard_version }}/AdGuardHome_linux_amd64.tar.gz"
+    dest: "/tmp/adguardhome-{{ adguard_version }}"
+    remote_src: true
+    creates: "/tmp/adguardhome-{{ adguard_version }}/AdGuardHome/AdGuardHome"
+
+- name: Install AdGuardHome binary
+  ansible.builtin.copy:
+    src: "/tmp/adguardhome-{{ adguard_version }}/AdGuardHome/AdGuardHome"
+    dest: "{{ adguard_install_dir }}/AdGuardHome"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: AdGuardHome.service.j2
+    dest: /etc/systemd/system/AdGuardHome.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart AdGuardHome
+
+- name: Enable and start AdGuardHome
+  ansible.builtin.systemd:
+    name: AdGuardHome
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Apply pending AdGuard service restart
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for AdGuard HTTP
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/"
+    status_code: [200, 302, 301, 404]
+  register: adguard_http
+  retries: 40
+  delay: 2
+  until: adguard_http is succeeded
+
+- name: Check whether AdGuard setup is already done
+  ansible.builtin.stat:
+    path: "{{ adguard_install_dir }}/AdGuardHome.yaml"
+  register: adguard_cfg
+
+- name: Run initial AdGuard configure (first boot only)
+  when: not adguard_cfg.stat.exists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/install/configure"
+    method: POST
+    body_format: json
+    body:
+      web:
+        ip: "0.0.0.0"
+        port: "{{ adguard_web_port | int }}"
+        status: ""
+        can_autofix: false
+      dns:
+        ip: "0.0.0.0"
+        port: "{{ adguard_dns_port | int }}"
+        status: ""
+        can_autofix: false
+      username: "{{ adguard_admin_user }}"
+      password: "{{ adguard_admin_password }}"
+    status_code: [200]
+    return_content: true
+  register: adguard_install
+  retries: 10
+  delay: 3
+  until: adguard_install is succeeded
+  no_log: true
+
+- name: Wait after configure
+  ansible.builtin.pause:
+    seconds: 5
+  when: not adguard_cfg.stat.exists
+
+- name: Wait for AdGuard API after first-run configure
+  when: not adguard_cfg.stat.exists
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/status"
+    status_code: [200, 401, 403]
+  register: adguard_ready
+  retries: 30
+  delay: 2
+  until: adguard_ready is succeeded
+
+- name: Authenticate to AdGuard API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/login"
+    method: POST
+    body_format: json
+    body:
+      name: "{{ adguard_admin_user }}"
+      password: "{{ adguard_admin_password }}"
+    status_code: [200]
+    return_content: true
+  register: adguard_login
+  no_log: true
+
+- name: Set AdGuard session cookie fact
+  ansible.builtin.set_fact:
+    adguard_session_cookie: >-
+      {{
+        'agh_session=' ~ (adguard_login.json.token | default(''))
+        if (adguard_login.json.token | default('')) | length > 0
+        else (adguard_login.cookies_string | default(''))
+      }}
+  no_log: true
+
+- name: Set AdGuard DNS upstreams (lab zone → Technitium)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ adguard_web_port }}/control/dns_config"
+    method: POST
+    body_format: json
+    headers:
+      Cookie: "{{ adguard_session_cookie }}"
+    body:
+      upstream_dns:
+        - "[/{{ lab_short_zone }}/]{{ technitium_ip }}"
+        - "[/{{ lab_zone }}/]{{ technitium_ip }}"
+        - "1.1.1.1"
+        - "1.0.0.1"
+      bootstrap_dns:
+        - "1.1.1.1"
+        - "1.0.0.1"
+      upstream_mode: load_balance
+      cache_size: 4194304
+      cache_optimistic: true
+      ratelimit: 0
+    status_code: [200]
+  register: adguard_dns_cfg
+  no_log: true
+
+- name: Apply reproducible AdGuard filtering and child-safety policy
+  ansible.builtin.include_tasks:
+    file: policy.yml
+    apply:
+      no_log: true
+
+- name: Point local resolv.conf at AdGuard
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    mode: "0644"
+    content: |
+      nameserver 127.0.0.1
+      search {{ lab_zone }}
+    force: true

@@ -1,0 +1,31 @@
+---
+# Register Dockhand environments via API, then deploy Hawser agents.
+#
+#   ./ansible/scripts/dockhand-register-environments.py
+#   ansible-playbook playbooks/dockhand-agents.yml
+
+- name: Deploy Hawser Edge agents
+  hosts: dockhand_agents
+  become: true
+  vars:
+    dockhand_hawser_tokens_file: "{{ playbook_dir }}/../files/dockhand-hawser-tokens.json"
+  pre_tasks:
+    - name: Load Hawser tokens file
+      ansible.builtin.slurp:
+        src: "{{ dockhand_hawser_tokens_file }}"
+      register: tokens_slurp
+      delegate_to: localhost
+      become: false
+
+    - name: Map Hawser vars from tokens file
+      ansible.builtin.set_fact:
+        hawser_bundle: "{{ tokens_slurp.content | b64decode | from_json }}"
+        hawser_agent: "{{ (tokens_slurp.content | b64decode | from_json).agents[inventory_hostname] | default({}) }}"
+
+    - name: Set token fields
+      ansible.builtin.set_fact:
+        hawser_token: "{{ hawser_agent.token | default('') }}"
+        hawser_agent_name: "{{ hawser_agent.agent_name | default(inventory_hostname) }}"
+        hawser_dockhand_server_url: "{{ hawser_bundle.dockhand_server_url }}"
+  roles:
+    - hawser

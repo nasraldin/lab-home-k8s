@@ -1,0 +1,5 @@
+---
+it_tools_compose_dir: /opt/it-tools
+# Pin to published release tag (old 2024.10.22-1ebf63c was never published / 404).
+it_tools_image: "ghcr.io/corentinth/it-tools:2024.10.22-7ca5933"
+it_tools_port: 1000

@@ -1,0 +1,22 @@
+---
+- name: Wait until all workers are Ready
+  ansible.builtin.command: kubectl get node {{ item }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  register: k8s_node_ready
+  until: k8s_node_ready.stdout == "True"
+  retries: 60
+  delay: 10
+  loop: "{{ groups['k8s_workers'] }}"
+  changed_when: false
+  environment:
+    KUBECONFIG: "/home/{{ k8s_admin_user }}/.kube/config"
+
+- name: Apply workload labels on workers
+  ansible.builtin.command: >
+    kubectl label node {{ item }}
+    {% for key, value in hostvars[item].k8s_node_labels.items() %}{{ key }}={{ value }}{% endfor %}
+    --overwrite
+  loop: "{{ groups['k8s_workers'] }}"
+  register: k8s_label_result
+  changed_when: "'labeled' in k8s_label_result.stdout"
+  environment:
+    KUBECONFIG: "/home/{{ k8s_admin_user }}/.kube/config"

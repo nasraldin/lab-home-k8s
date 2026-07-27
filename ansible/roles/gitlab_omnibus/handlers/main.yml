@@ -1,0 +1,6 @@
+---
+- name: Reconfigure GitLab
+  ansible.builtin.command:
+    cmd: gitlab-ctl reconfigure
+  async: 1800
+  poll: 15

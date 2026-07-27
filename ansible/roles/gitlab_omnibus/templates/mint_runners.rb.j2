@@ -1,0 +1,56 @@
+# Managed by ansible-lab — mint instance runners for inventory hosts.
+# Prints JSON lines: {"name":"...","token":"glrt-...","status":"created"|"exists"}
+# Final line: CHANGED or OK
+require 'json'
+
+desired = [
+{% for host in groups['runners'] | default([]) %}
+  {
+    'description' => {{ hostvars[host].gitlab_runner_name | default(host ~ '-docker') | to_json }},
+    'tags' => {{ hostvars[host].gitlab_runner_tags | default([host]) | to_json }},
+    'run_untagged' => {{ hostvars[host].gitlab_runner_run_untagged | default(true) | bool | lower }},
+  },
+{% endfor %}
+].freeze
+
+user = User.find_by(username: 'root') || User.admins.first
+raise 'no admin user' unless user
+
+token_dir = '/etc/gitlab/ansible-runner-tokens'
+Dir.mkdir(token_dir) unless Dir.exist?(token_dir)
+
+changed = false
+
+desired.each do |want|
+  existing = Ci::Runner.where(description: want['description']).to_a
+  if existing.any?
+    puts({ name: want['description'], status: 'exists' }.to_json)
+    next
+  end
+
+  params = {
+    runner_type: 'instance_type',
+    description: want['description'],
+    tag_list: want['tags'],
+    run_untagged: want['run_untagged'],
+    locked: false,
+    access_level: 'not_protected'
+  }
+  res = ::Ci::Runners::CreateRunnerService.new(user: user, params: params).execute
+  ok = res.respond_to?(:success?) ? res.success? : true
+  raise "failed to create #{want['description']}: #{res.inspect}" unless ok
+
+  runner = res.respond_to?(:payload) ? res.payload[:runner] : res
+  token = runner.token
+  path = File.join(token_dir, "#{want['description']}.token")
+  File.write(path, token)
+  begin
+    File.chmod(0640, path)
+  rescue StandardError
+    # git user may not chmod; ansible owns directory mode
+  end
+  puts({ name: want['description'], token: token, status: 'created' }.to_json)
+  changed = true
+end
+
+puts(changed ? 'CHANGED' : 'OK')

@@ -1,0 +1,71 @@
+# Managed by ansible-lab gitlab_omnibus — ApplicationSetting + root password.
+changed = false
+
+s = ApplicationSetting.current
+
+domain = {{ gitlab_web_ide_extension_host_domain | to_json }}
+want_fallback = {{ gitlab_web_ide_single_origin_fallback | bool | lower }}
+want_signup = {{ gitlab_signup_enabled | bool | lower }}
+want_auto_devops = {{ gitlab_auto_devops_enabled | bool | lower }}
+want_marketplace = {{ gitlab_vscode_extension_marketplace_enabled | bool | lower }}
+want_local_hooks = {{ gitlab_allow_local_requests_from_web_hooks_and_services | bool | lower }}
+default_branch = {{ gitlab_default_branch_name | to_json }}
+git_proto = {{ gitlab_enabled_git_access_protocol | to_json }}
+
+if s.vscode_extension_marketplace_extension_host_domain != domain
+  s.vscode_extension_marketplace_extension_host_domain = domain
+  changed = true
+end
+
+if s.vscode_extension_marketplace_single_origin_fallback_enabled != want_fallback
+  s.vscode_extension_marketplace_single_origin_fallback_enabled = want_fallback
+  changed = true
+end
+
+if s.respond_to?(:vscode_extension_marketplace_enabled=) && s.vscode_extension_marketplace_enabled != want_marketplace
+  s.vscode_extension_marketplace_enabled = want_marketplace
+  changed = true
+end
+
+if s.signup_enabled != want_signup
+  s.signup_enabled = want_signup
+  changed = true
+end
+
+if s.auto_devops_enabled != want_auto_devops
+  s.auto_devops_enabled = want_auto_devops
+  changed = true
+end
+
+if s.default_branch_name.to_s != default_branch
+  s.default_branch_name = default_branch
+  changed = true
+end
+
+if s.enabled_git_access_protocol.to_s != git_proto
+  s.enabled_git_access_protocol = git_proto
+  changed = true
+end
+
+if s.allow_local_requests_from_web_hooks_and_services != want_local_hooks
+  s.allow_local_requests_from_web_hooks_and_services = want_local_hooks
+  changed = true
+end
+
+if s.changed?
+  s.save!
+  changed = true
+end
+
+root = User.find_by_username('root')
+raise 'root user missing' unless root
+
+password = {{ gitlab_root_password | to_json }}
+unless root.valid_password?(password)
+  root.password = password
+  root.password_confirmation = password
+  root.save!
+  changed = true
+end
+
+puts(changed ? 'CHANGED' : 'OK')

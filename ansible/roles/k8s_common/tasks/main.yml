@@ -1,0 +1,94 @@
+---
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ k8s_common_packages }}"
+    state: present
+    update_cache: true
+
+- name: Disable swap now
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+  failed_when: false
+
+- name: Remove swap entries from fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1'
+
+- name: Load overlay and br_netfilter
+  ansible.builtin.command: modprobe {{ item }}
+  changed_when: false
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Persist kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    mode: "0644"
+    content: |
+      overlay
+      br_netfilter
+
+- name: Configure sysctl for Kubernetes networking
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-kubernetes.conf
+    mode: "0644"
+    content: |
+      net.bridge.bridge-nf-call-iptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward = 1
+
+- name: Apply Kubernetes sysctl settings now
+  ansible.builtin.command: sysctl --system
+  changed_when: true
+
+- name: Assert ip_forward is enabled
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: k8s_ip_forward
+  changed_when: false
+  failed_when: k8s_ip_forward.stdout | trim != "1"
+
+# lab.nasraldin.com is public (Cloudflare). Pin node names for kubeadm joins.
+- name: Pin lab node names in /etc/hosts
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED lab-home-k8s"
+    block: |
+      {{ hostvars['k8s-cp-01'].ansible_host }} k8s-cp-01 kube-api.lab.nasraldin.com
+      {{ hostvars['k8s-w-01'].ansible_host }} k8s-w-01
+      {{ hostvars['k8s-w-02'].ansible_host }} k8s-w-02
+      {{ hostvars['k8s-w-03'].ansible_host }} k8s-w-03
+
+- name: Prefer lab DNS resolver (no search domain)
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    mode: "0644"
+    content: |
+      nameserver {{ lab_dns }}
+      nameserver 1.1.1.1
+      options edns0
+    # Do NOT set "search lab.nasraldin.com" — with ndots:5, lookups like
+    # github.com become github.com.lab.nasraldin.com (Cloudflare wildcard)
+    # and break Argo/Helm chart pulls from the public internet.
+
+# kubelet injects host search domains into every pod resolv.conf. Keep a
+# search-free file and point kubelet at it (avoids DHCP search lab.nasraldin.com).
+- name: Install search-free resolv.conf for kubelet pods
+  ansible.builtin.copy:
+    dest: /etc/kubernetes/pod-resolv.conf
+    mode: "0644"
+    content: |
+      nameserver {{ lab_dns }}
+      nameserver 1.1.1.1
+      options edns0
+  when: "'k8s_nodes' in group_names"
+
+- name: Point kubelet resolvConf at search-free file
+  ansible.builtin.lineinfile:
+    path: /var/lib/kubelet/config.yaml
+    regexp: '^resolvConf:'
+    line: 'resolvConf: /etc/kubernetes/pod-resolv.conf'
+  when: "'k8s_nodes' in group_names"
+  notify: Restart kubelet

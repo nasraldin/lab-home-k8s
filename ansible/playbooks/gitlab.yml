@@ -1,0 +1,44 @@
+---
+- name: Configure GitLab CE Omnibus
+  hosts: gitlab-01
+  gather_facts: true
+  pre_tasks:
+    - name: Require GitLab secrets
+      ansible.builtin.assert:
+        that:
+          - vault_gitlab_root_password is defined
+          - vault_gitlab_root_password | length >= 16
+          - "'replace-with' not in vault_gitlab_root_password"
+          - vault_gitlab_s3_access_key is defined
+          - vault_gitlab_s3_secret_key is defined
+        fail_msg: >-
+          Set vault_gitlab_root_password and vault_gitlab_s3_* in secrets.yml.
+      no_log: true
+  roles:
+    - role: guest_common
+    - role: gitlab_omnibus
+
+- name: Mint missing GitLab runner authentication tokens
+  hosts: gitlab-01
+  gather_facts: false
+  tasks:
+    - name: Mint runners
+      ansible.builtin.include_role:
+        name: gitlab_omnibus
+        tasks_from: mint_runners.yml
+
+- name: Configure GitLab Runner (static Docker executor)
+  hosts: runners
+  gather_facts: true
+  roles:
+    - role: guest_common
+    - role: gitlab_runner
+
+- name: Reconcile runner metadata on GitLab after registration
+  hosts: gitlab-01
+  gather_facts: false
+  tasks:
+    - name: Reconcile ApplicationSettings and runner tags
+      ansible.builtin.include_role:
+        name: gitlab_omnibus
+        tasks_from: application_settings.yml

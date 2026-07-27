@@ -1,0 +1,188 @@
+---
+lab_cidr: "192.168.68.0/22"
+lab_zone: "lab.nasraldin.com"
+lab_short_zone: "lab"  # Short LAN-only zone (gitlab.lab, grafana.lab, …)
+public_zone: "nasraldin.com"
+gateway_ip: "192.168.68.1"
+pve_ip: "192.168.68.2"  # Proxmox host on the new machine (not a guest VM)
+adguard_ip: "192.168.68.10"
+technitium_ip: "192.168.68.10"
+
+# Guest LAN addresses (VMID 110–117 VMs, LXC 118–119)
+guest_ips:
+  infra-01: "192.168.68.10"
+  gitlab-01: "192.168.68.11"
+  runner-01: "192.168.68.12"
+  k8s-cp-01: "192.168.68.13"
+  k8s-w-01: "192.168.68.14"
+  k8s-w-02: "192.168.68.15"
+  k8s-w-03: "192.168.68.16"
+  docker-01: "192.168.68.17"
+  dockhand: "192.168.68.18"
+  portainer: "192.168.68.19"
+
+# Public HTTPS hostnames (Cloudflare proxied CNAME → tunnel)
+public_urls:
+  proxmox: "https://homelab.nasraldin.com"
+  gitlab: "https://gitlab.nasraldin.com"
+  registry: "https://registry.nasraldin.com"
+  argo: "https://argo.nasraldin.com"
+  harbor: "https://harbor.nasraldin.com"
+  grafana: "https://grafana.nasraldin.com"
+  keycloak: "https://id.nasraldin.com"
+  minio: "https://minio.nasraldin.com"
+  s3: "https://s3.nasraldin.com"
+  npm: "https://npm.nasraldin.com"
+  portainer: "https://portainer.nasraldin.com"
+  dockhand: "https://docker.nasraldin.com"
+
+# Cloudflare Tunnel ingress origins (LAN). Copy to cloudflare-tunnel bootstrap.
+tunnel_origins:
+  homelab: "https://127.0.0.1:8006"
+  gitlab: "http://{{ guest_ips['gitlab-01'] }}:80"
+  registry: "http://{{ guest_ips['gitlab-01'] }}:5050"
+  dockhand: "http://{{ guest_ips['dockhand'] }}:3000"
+  argo: "http://{{ cilium_lb_ips.argocd }}:80"
+  harbor: "http://{{ cilium_lb_ips.harbor }}:80"
+  grafana: "http://{{ cilium_lb_ips.grafana }}:80"
+  keycloak: "http://{{ cilium_lb_ips.keycloak }}:80"
+  minio: "http://{{ guest_ips['infra-01'] }}:9001"
+  s3: "http://{{ guest_ips['infra-01'] }}:9000"
+  npm: "http://{{ guest_ips['docker-01'] }}:81"
+  portainer: "https://{{ guest_ips['portainer'] }}:9443"
+
+# Hostnames that require Cloudflare Access OTP (same policy as homelab / docker)
+tunnel_access_hostnames:
+  - homelab.nasraldin.com
+  - docker.nasraldin.com
+
+# Reserved Cilium LoadBalancer IPs (lab-pool 192.168.68.100–119)
+cilium_lb_ips:
+  argocd: "192.168.68.100"
+  harbor: "192.168.68.101"
+  grafana: "192.168.68.102"
+  keycloak: "192.168.68.103"
+  longhorn: "192.168.68.104"
+
+# Short LAN URLs (*.lab) — HTTP direct to backends; public *.nasraldin.com unchanged (Cloudflare).
+lab_urls:
+  proxmox: "https://pve.lab:8006"
+  gitlab: "http://gitlab.lab"
+  registry: "http://registry.lab:5050"
+  argo: "http://argo.lab"
+  harbor: "http://harbor.lab"
+  grafana: "http://grafana.lab"
+  keycloak: "http://id.lab"
+  longhorn: "http://longhorn.lab"
+  minio: "http://minio.lab:9001"
+  s3: "http://s3.lab:9000"
+  npm: "http://npm.lab:81"
+  portainer: "https://portainer.lab:9443"
+  dockhand: "http://dockhand.lab"
+  adguard: "http://adguard.lab:3000"
+  dns: "http://dns.lab:5380"
+  infisical: "http://infisical.lab:8090"
+  kube_api: "https://kube.lab:6443"
+
+# Internal lab.nasraldin.com records (Technitium authoritative zone)
+technitium_zone_records:
+  - { name: "pve01", value: "{{ pve_ip }}" }
+  - { name: "infra-01", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "gitlab-01", value: "{{ guest_ips['gitlab-01'] }}" }
+  - { name: "runner-01", value: "{{ guest_ips['runner-01'] }}" }
+  - { name: "k8s-cp-01", value: "{{ guest_ips['k8s-cp-01'] }}" }
+  - { name: "k8s-w-01", value: "{{ guest_ips['k8s-w-01'] }}" }
+  - { name: "k8s-w-02", value: "{{ guest_ips['k8s-w-02'] }}" }
+  - { name: "k8s-w-03", value: "{{ guest_ips['k8s-w-03'] }}" }
+  - { name: "docker-01", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "dockhand", value: "{{ guest_ips['dockhand'] }}" }
+  - { name: "kube-api", value: "{{ guest_ips['k8s-cp-01'] }}" }
+  - { name: "argo", value: "{{ cilium_lb_ips.argocd }}" }
+  - { name: "harbor", value: "{{ cilium_lb_ips.harbor }}" }
+  - { name: "grafana", value: "{{ cilium_lb_ips.grafana }}" }
+  - { name: "id", value: "{{ cilium_lb_ips.keycloak }}" }
+  - { name: "longhorn", value: "{{ cilium_lb_ips.longhorn }}" }
+  - { name: "minio", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "s3", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "portainer", value: "{{ guest_ips['portainer'] }}" }
+  - { name: "gateway", value: "{{ gateway_ip }}" }
+
+# Short *.lab zone — friendly LAN names
+technitium_short_zone_records:
+  - { name: "pve", value: "{{ pve_ip }}" }
+  - { name: "proxmox", value: "{{ pve_ip }}" }
+  - { name: "infra", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "gitlab", value: "{{ guest_ips['gitlab-01'] }}" }
+  - { name: "registry", value: "{{ guest_ips['gitlab-01'] }}" }
+  - { name: "runner", value: "{{ guest_ips['runner-01'] }}" }
+  - { name: "kube", value: "{{ guest_ips['k8s-cp-01'] }}" }
+  - { name: "argo", value: "{{ cilium_lb_ips.argocd }}" }
+  - { name: "harbor", value: "{{ cilium_lb_ips.harbor }}" }
+  - { name: "grafana", value: "{{ cilium_lb_ips.grafana }}" }
+  - { name: "id", value: "{{ cilium_lb_ips.keycloak }}" }
+  - { name: "keycloak", value: "{{ cilium_lb_ips.keycloak }}" }
+  - { name: "longhorn", value: "{{ cilium_lb_ips.longhorn }}" }
+  - { name: "minio", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "s3", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "npm", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "portainer", value: "{{ guest_ips['portainer'] }}" }
+  - { name: "dockhand", value: "{{ guest_ips['dockhand'] }}" }
+  - { name: "docker", value: "{{ guest_ips['dockhand'] }}" }
+  - { name: "adguard", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "dns", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "technitium", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "infisical", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "gateway", value: "{{ gateway_ip }}" }
+
+# Technitium zones managed by ansible/roles/technitium_dns
+technitium_managed_zones:
+  - zone: "{{ lab_zone }}"
+    records: "{{ technitium_zone_records }}"
+  - zone: "{{ lab_short_zone }}"
+    records: "{{ technitium_short_zone_records }}"
+
+# Kubernetes — single control plane (no HAProxy)
+k8s_version: "1.36"
+k8s_version_package: "1.36.*"
+pod_network_cidr: "10.244.0.0/16"
+service_cidr: "10.96.0.0/12"
+control_plane_endpoint: "{{ guest_ips['k8s-cp-01'] }}:6443"
+lab_dns: "{{ adguard_ip }}"
+cilium_lb_pool_cidrs:
+  - "192.168.68.100-192.168.68.119"
+ansible_user: nasr
+
+adguard_admin_user: admin
+adguard_admin_password: "{{ vault_adguard_admin_password }}"
+technitium_admin_password: "{{ vault_technitium_admin_password }}"
+
+# GitLab Omnibus — public URLs set before first reconfigure (TLS at Cloudflare)
+gitlab_external_url: "{{ public_urls.gitlab }}"
+gitlab_registry_external_url: "{{ public_urls.registry }}"
+gitlab_object_store_endpoint: "http://{{ guest_ips['infra-01'] }}:9000"
+
+# Argo CD bootstrap (install-argocd.sh)
+argocd_public_url: "{{ public_urls.argo }}"
+argocd_hostname: "argo.nasraldin.com"
+argocd_lb_ip: "{{ cilium_lb_ips.argocd }}"
+
+# Harbor / Grafana (lab-home-gitops Helm values reference these)
+harbor_external_url: "{{ public_urls.harbor }}"
+harbor_lb_ip: "{{ cilium_lb_ips.harbor }}"
+grafana_public_url: "{{ public_urls.grafana }}"
+grafana_hostname: "grafana.nasraldin.com"
+grafana_lb_ip: "{{ cilium_lb_ips.grafana }}"
+
+# Keycloak (lab-home-gitops Helm values reference these)
+keycloak_public_url: "{{ public_urls.keycloak }}"
+keycloak_hostname: "id.nasraldin.com"
+keycloak_lb_ip: "{{ cilium_lb_ips.keycloak }}"
+
+# AIStor / MinIO (infra-01 — console + S3 API public, GitLab uses LAN :9000)
+aistor_public_console_url: "{{ public_urls.minio }}"
+aistor_public_s3_url: "{{ public_urls.s3 }}"
+aistor_browser_redirect_url: "{{ public_urls.minio }}"
+aistor_server_url: "{{ public_urls.s3 }}"
+
+# Portainer CT (LXC 119)
+portainer_public_url: "{{ public_urls.portainer }}"

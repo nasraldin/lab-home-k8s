@@ -1,0 +1,6 @@
+---
+docker_host_apt_arch: "{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else ansible_facts['architecture'] }}"
+docker_host_opt_dir: /opt
+docker_host_proxy_network: proxy
+docker_host_users:
+  - "{{ ansible_user | default('nasr') }}"

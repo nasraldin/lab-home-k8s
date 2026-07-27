@@ -1,0 +1,13 @@
+services:
+  dockhand:
+    image: {{ dockhand_image }}
+    container_name: dockhand
+    restart: unless-stopped
+    ports:
+      - "{{ dockhand_port }}:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockhand_data:/data
+
+volumes:
+  dockhand_data:

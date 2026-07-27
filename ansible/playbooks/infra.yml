@@ -1,0 +1,25 @@
+---
+- name: Configure infra-01 core stack (DNS, Infisical, AIStor)
+  hosts: infra-01
+  gather_facts: true
+  pre_tasks:
+    - name: Require non-placeholder DNS admin secrets
+      ansible.builtin.assert:
+        that:
+          - vault_adguard_admin_password is defined
+          - vault_technitium_admin_password is defined
+          - vault_adguard_admin_password | length >= 16
+          - vault_technitium_admin_password | length >= 16
+          - "'replace-with' not in vault_adguard_admin_password"
+          - "'replace-with' not in vault_technitium_admin_password"
+        fail_msg: >-
+          Copy secrets.example.yml to secrets.yml, set both strong passwords,
+          and run with -e @secrets.yml.
+      no_log: true
+  roles:
+    - role: guest_common
+    - role: docker_host
+    - role: technitium_dns
+    - role: adguard_home
+    - role: infisical
+    - role: aistor

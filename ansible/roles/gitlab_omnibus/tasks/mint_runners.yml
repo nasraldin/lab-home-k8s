@@ -1,0 +1,28 @@
+---
+- name: Stage runner mint script
+  ansible.builtin.template:
+    src: mint_runners.rb.j2
+    dest: /etc/gitlab/ansible-mint-runners.rb
+    owner: root
+    group: git
+    mode: "0640"
+
+- name: Ensure runner token directory
+  ansible.builtin.file:
+    path: /etc/gitlab/ansible-runner-tokens
+    state: directory
+    owner: root
+    group: git
+    mode: "0770"
+
+- name: Mint runners for inventory hosts missing a matching description
+  ansible.builtin.command:
+    cmd: gitlab-rails runner /etc/gitlab/ansible-mint-runners.rb
+  register: gitlab_mint
+  changed_when: "'CHANGED' in gitlab_mint.stdout"
+  failed_when: >-
+    gitlab_mint.rc != 0
+    or (
+      'CHANGED' not in gitlab_mint.stdout
+      and 'OK' not in gitlab_mint.stdout
+    )

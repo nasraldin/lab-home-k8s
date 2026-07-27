@@ -1,0 +1,4 @@
+---
+technitium_web_port: 5380
+lab_short_zone: lab
+# technitium_managed_zones built in inventory/group_vars/all.yml

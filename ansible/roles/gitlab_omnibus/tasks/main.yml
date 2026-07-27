@@ -1,0 +1,132 @@
+---
+- name: Require GitLab root password secret
+  ansible.builtin.assert:
+    that:
+      - vault_gitlab_root_password is defined
+      - vault_gitlab_root_password | length >= 16
+      - "'replace-with' not in vault_gitlab_root_password"
+    fail_msg: >-
+      Set vault_gitlab_root_password in secrets.yml (≥16 chars) and run with
+      -e @secrets.yml.
+  no_log: true
+
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install GitLab package prerequisites
+  ansible.builtin.apt:
+    name:
+      - curl
+      - openssh-server
+      - ca-certificates
+      - tzdata
+      - perl
+      - postfix
+    state: present
+    update_cache: true
+
+- name: Download GitLab Omnibus repository setup script
+  ansible.builtin.get_url:
+    url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh
+    dest: /tmp/gitlab-ce-repo.sh
+    mode: "0755"
+
+- name: Add GitLab Omnibus APT repository
+  ansible.builtin.command:
+    cmd: /tmp/gitlab-ce-repo.sh
+    creates: /etc/apt/sources.list.d/gitlab_gitlab-ce.list
+
+# Pre-seed gitlab.rb before the Omnibus postinst runs. Passing EXTERNAL_URL=https://...
+# during apt install enables Let's Encrypt on first configure, which fails behind
+# Cloudflare Tunnel (HTTP-01 → CF 530). Our template keeps external_url HTTPS for
+# generated links but disables LE and nginx HTTPS (TLS terminates at Cloudflare).
+- name: Ensure GitLab config directory exists
+  ansible.builtin.file:
+    path: "{{ gitlab_omnibus_config_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy gitlab.rb
+  ansible.builtin.template:
+    src: gitlab.rb.j2
+    dest: "{{ gitlab_omnibus_config_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reconfigure GitLab
+
+# If a prior EXTERNAL_URL=https://… install left gitlab-ce half-configured, apt
+# install re-runs postinst and fails before any recovery tasks. Heal first.
+- name: Check gitlab-ce dpkg status before install
+  ansible.builtin.command:
+    cmd: dpkg-query -W -f='${Status}' gitlab-ce
+  register: gitlab_dpkg_status
+  changed_when: false
+  failed_when: false
+
+- name: Reconfigure GitLab to heal half-configured package
+  when: >-
+    gitlab_dpkg_status.rc == 0
+    and ('half-configured' in gitlab_dpkg_status.stdout
+         or 'unpacked' in gitlab_dpkg_status.stdout)
+  ansible.builtin.command:
+    cmd: gitlab-ctl reconfigure
+  async: 1800
+  poll: 15
+
+- name: Complete interrupted gitlab-ce package configuration
+  when: >-
+    gitlab_dpkg_status.rc == 0
+    and ('half-configured' in gitlab_dpkg_status.stdout
+         or 'unpacked' in gitlab_dpkg_status.stdout)
+  ansible.builtin.command:
+    cmd: dpkg --configure gitlab-ce
+  async: 1800
+  poll: 15
+
+- name: Install GitLab CE Omnibus package
+  ansible.builtin.apt:
+    name: "{{ gitlab_package_name }}"
+    state: present
+    update_cache: true
+
+- name: Ensure GitLab has been reconfigured at least once
+  ansible.builtin.command:
+    cmd: gitlab-ctl reconfigure
+    creates: /var/opt/gitlab/gitlab-rails/etc/gitlab.yml
+  # Long-running first configure
+  async: 1800
+  poll: 15
+
+- name: Flush handlers so reconfigure runs before status check
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify GitLab services are running
+  ansible.builtin.command:
+    cmd: gitlab-ctl status
+  register: gitlab_ctl_status
+  changed_when: false
+  failed_when: gitlab_ctl_status.rc != 0
+
+- name: Verify Package Registry is available (modern GitLab CE — always on)
+  ansible.builtin.command:
+    cmd: >-
+      gitlab-rails runner
+      'pr = ApplicationSetting.current.package_registry;
+      raise "package_registry settings missing" if pr.blank?;
+      puts "package_registry_ok"'
+  changed_when: false
+  register: gitlab_packages_check
+  failed_when: >-
+    gitlab_packages_check.rc != 0
+    or ('package_registry_ok' not in gitlab_packages_check.stdout)
+
+- name: Apply ApplicationSettings, root password, and runner metadata
+  ansible.builtin.include_tasks: application_settings.yml

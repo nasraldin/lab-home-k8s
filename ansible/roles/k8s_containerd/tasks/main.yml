@@ -1,0 +1,39 @@
+---
+- name: Install containerd
+  ansible.builtin.apt:
+    name:
+      - containerd
+      - runc
+    state: present
+    update_cache: true
+
+- name: Ensure containerd config directory exists
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: Generate default containerd config with SystemdCgroup
+  ansible.builtin.shell: |
+    set -euo pipefail
+    containerd config default > {{ containerd_config_path }}.tmp
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' {{ containerd_config_path }}.tmp
+    # Debian defaults to /usr/lib/cni; Cilium + containernetworking plugins use /opt/cni/bin
+    sed -i 's|bin_dir = "/usr/lib/cni"|bin_dir = "/opt/cni/bin"|' {{ containerd_config_path }}.tmp
+    if ! cmp -s {{ containerd_config_path }}.tmp {{ containerd_config_path }} 2>/dev/null; then
+      mv {{ containerd_config_path }}.tmp {{ containerd_config_path }}
+      echo CHANGED
+    else
+      rm -f {{ containerd_config_path }}.tmp
+    fi
+  args:
+    executable: /bin/bash
+  register: k8s_containerd_config
+  changed_when: "'CHANGED' in k8s_containerd_config.stdout"
+  notify: Restart containerd
+
+- name: Enable and start containerd
+  ansible.builtin.service:
+    name: containerd
+    state: started
+    enabled: true

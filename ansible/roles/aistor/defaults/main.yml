@@ -1,0 +1,60 @@
+---
+# AIStor Free — shared lab object storage (quay.io/minio/aistor/minio).
+# Not classic MinIO Community Edition (archived).
+
+aistor_version: "latest"
+aistor_download_url: "https://dl.min.io/aistor/minio/release/linux-amd64/minio"
+aistor_mc_download_url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
+
+aistor_user: aistor
+aistor_group: aistor
+aistor_home: /var/lib/aistor
+aistor_data_dir: /var/lib/aistor/data
+aistor_config_dir: /etc/aistor
+aistor_bin_dir: /usr/local/bin
+aistor_license_dest: /etc/aistor/minio.license
+
+aistor_api_port: 9000
+aistor_console_port: 9001
+# Overridden by group_vars/all.yml on home lab (public console URL, LAN S3 API).
+aistor_server_url: "http://{{ ansible_host }}:{{ aistor_api_port }}"
+aistor_browser_redirect_url: "http://{{ ansible_host }}:{{ aistor_console_port }}"
+
+# Root credentials from secrets.yml
+aistor_root_user: "{{ vault_aistor_root_user }}"
+aistor_root_password: "{{ vault_aistor_root_password }}"
+
+# License: copy from control node path (gitignored)
+aistor_license_src: "{{ playbook_dir }}/../files/aistor/minio.license"
+
+# Buckets created by Ansible (idempotent). Terraform MinIO provider can own
+# the same list long-term; Ansible ensures first-boot before TF provider runs.
+aistor_buckets:
+  - { name: objects, versioning: true }
+  - { name: tables, versioning: true }
+  - { name: files, versioning: true }
+  - { name: vault-raft-snapshots, versioning: true }
+  - { name: gitlab-artifacts, versioning: true }
+  - { name: gitlab-lfs, versioning: true }
+  - { name: gitlab-uploads, versioning: true }
+  - { name: gitlab-packages, versioning: true }
+  - { name: gitlab-dependency-proxy, versioning: true }
+  - { name: gitlab-terraform-state, versioning: true }
+  - { name: gitlab-ci-secure-files, versioning: true }
+  - { name: gitlab-pages, versioning: true }
+  - { name: gitlab-external-diffs, versioning: true }
+  - { name: gitlab-registry, versioning: true }
+  - { name: runner-cache, versioning: false }
+  - { name: elasticsearch-snapshots, versioning: true }
+
+# Scoped GitLab S3 user (least privilege)
+aistor_gitlab_user: gitlab-s3
+aistor_gitlab_access_key: "{{ vault_gitlab_s3_access_key }}"
+aistor_gitlab_secret_key: "{{ vault_gitlab_s3_secret_key }}"
+aistor_gitlab_policy_name: gitlab-object-store
+
+# Scoped Elasticsearch snapshot user
+aistor_elastic_access_key: "{{ vault_elastic_s3_access_key }}"
+aistor_elastic_secret_key: "{{ vault_elastic_s3_secret_key }}"
+aistor_elastic_policy_name: elasticsearch-snapshots
+aistor_elastic_bucket: elasticsearch-snapshots

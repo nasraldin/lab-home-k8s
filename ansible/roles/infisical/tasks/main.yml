@@ -1,0 +1,78 @@
+---
+- name: Require Infisical bootstrap secrets
+  ansible.builtin.assert:
+    that:
+      - vault_infisical_encryption_key is defined
+      - vault_infisical_encryption_key | length == 32
+      - vault_infisical_auth_secret is defined
+      - vault_infisical_auth_secret | length >= 32
+      - vault_infisical_postgres_password is defined
+      - vault_infisical_postgres_password | length >= 16
+      - "'replace-with' not in vault_infisical_encryption_key"
+      - "'replace-with' not in vault_infisical_auth_secret"
+      - "'replace-with' not in vault_infisical_postgres_password"
+    fail_msg: >-
+      Set vault_infisical_encryption_key (openssl rand -hex 16),
+      vault_infisical_auth_secret (openssl rand -base64 32), and
+      vault_infisical_postgres_password in secrets.yml. Back up ENCRYPTION_KEY offline.
+  no_log: true
+
+- name: Create Infisical compose directory
+  ansible.builtin.file:
+    path: "{{ infisical_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy Infisical docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ infisical_compose_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart Infisical stack
+
+- name: Deploy Infisical .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ infisical_compose_dir }}/.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart Infisical stack
+
+- name: Persist bootstrap reminder on host (no secrets)
+  ansible.builtin.copy:
+    dest: "{{ infisical_compose_dir }}/README.ops.md"
+    mode: "0644"
+    content: |
+      # Infisical ops ({{ inventory_hostname }})
+
+      - UI: {{ infisical_site_url }}
+      - Postgres: PgCat {{ infisical_pg_host }}:{{ infisical_pg_port }} (database-01)
+      - Stack: `docker compose -f {{ infisical_compose_dir }}/docker-compose.yml`
+      - Back up ENCRYPTION_KEY + DB dump; key loss = data loss
+
+- name: Flush handlers to start stack
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure Infisical stack is up
+  ansible.builtin.command:
+    cmd: docker compose -f {{ infisical_compose_dir }}/docker-compose.yml up -d
+  args:
+    chdir: "{{ infisical_compose_dir }}"
+  register: infisical_compose_up
+  changed_when: "'Started' in infisical_compose_up.stderr or 'Created' in infisical_compose_up.stderr"
+
+- name: Wait for Infisical API status
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ infisical_http_port }}/api/status"
+    method: GET
+    status_code: [200]
+  register: infisical_status
+  retries: 40
+  delay: 5
+  until: infisical_status.status == 200

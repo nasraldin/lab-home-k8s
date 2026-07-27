@@ -1,0 +1,22 @@
+---
+- name: Install etcd backup script
+  ansible.builtin.template:
+    src: etcd-backup.sh.j2
+    dest: /usr/local/sbin/k8s-etcd-backup.sh
+    mode: "0755"
+
+- name: Ensure etcd backup directory
+  ansible.builtin.file:
+    path: "{{ etcd_backup_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Install etcd backup cron
+  ansible.builtin.copy:
+    dest: /etc/cron.d/k8s-etcd-backup
+    mode: "0644"
+    content: |
+      # Daily etcd snapshot for stacked control-plane members
+      SHELL=/bin/bash
+      PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+      {{ etcd_backup_minute }} {{ etcd_backup_hour }} * * * root /usr/local/sbin/k8s-etcd-backup.sh

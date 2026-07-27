@@ -1,0 +1,7 @@
+---
+- name: Configure GitLab Runner only
+  hosts: runners
+  gather_facts: true
+  roles:
+    - role: guest_common
+    - role: gitlab_runner

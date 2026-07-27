@@ -1,0 +1,27 @@
+services:
+  npm:
+    image: {{ npm_image }}
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      # Skip UI first-user setup — https://nginxproxymanager.com/advanced-config/#auto-initial-user-creation
+      INITIAL_ADMIN_EMAIL: "{{ npm_initial_admin_email }}"
+      INITIAL_ADMIN_PASSWORD: "{{ npm_initial_admin_password }}"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+
+volumes:
+  npm_data:
+  npm_letsencrypt:
+
+networks:
+  proxy:
+    external: true
+    name: proxy

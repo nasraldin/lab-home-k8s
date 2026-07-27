@@ -1,0 +1,162 @@
+# Single-lab VM inventory — VMIDs 110–117, LXC 118–119. Copy to terraform.tfvars.
+
+proxmox_endpoint = "https://pve01.lab.nasraldin.com:8006/"
+node_name        = "pve01"
+
+network_gateway = "192.168.68.1"
+network_bridge  = "vmbr0"
+vm_datastore    = "data01"
+
+default_username = "nasr"
+ssh_public_key   = "ssh-ed25519 AAAA... replace-me"
+
+zfs_pools = {
+  data01 = {
+    device = "/dev/disk/by-id/nvme-REPLACE_ME"
+  }
+}
+
+cloud_images = {
+  debian-13 = {
+    url       = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+    file_name = "debian-13-genericcloud-amd64.qcow2"
+  }
+}
+
+lxc_templates = {
+  debian-13 = {
+    url       = "http://download.proxmox.com/images/system/debian-13-standard_13.1-2_amd64.tar.zst"
+    file_name = "debian-13-standard_13.1-2_amd64.tar.zst"
+  }
+}
+
+vms = {
+  infra-01 = {
+    image            = "debian-13"
+    tags             = ["infra", "core", "debian", "docker"]
+    vm_id            = 110
+    cores            = 4
+    memory           = 12288
+    disk_gb          = 400
+    ip               = "192.168.68.10/22"
+    startup_order    = 1
+    startup_up_delay = 15
+  }
+  gitlab-01 = {
+    image         = "debian-13"
+    tags          = ["gitlab", "core", "debian"]
+    vm_id         = 111
+    cores         = 4
+    memory        = 16384
+    disk_gb       = 150
+    ip            = "192.168.68.11/22"
+    startup_order = 2
+  }
+  runner-01 = {
+    image         = "debian-13"
+    tags          = ["ci", "core", "debian"]
+    vm_id         = 112
+    cores         = 2
+    memory        = 4096
+    disk_gb       = 40
+    ip            = "192.168.68.12/22"
+    startup_order = 3
+  }
+  k8s-cp-01 = {
+    image         = "debian-13"
+    tags          = ["k8s", "control-plane", "debian"]
+    vm_id         = 113
+    cores         = 2
+    memory        = 4096
+    disk_gb       = 40
+    ip            = "192.168.68.13/22"
+    startup_order = 4
+  }
+  k8s-w-01 = {
+    image         = "debian-13"
+    tags          = ["k8s", "worker", "debian"]
+    vm_id         = 114
+    cores         = 4
+    memory        = 8192
+    disk_gb       = 60
+    data_disk_gb  = 100
+    ip            = "192.168.68.14/22"
+    startup_order = 5
+  }
+  k8s-w-02 = {
+    image         = "debian-13"
+    tags          = ["k8s", "worker", "debian"]
+    vm_id         = 115
+    cores         = 4
+    memory        = 8192
+    disk_gb       = 60
+    data_disk_gb  = 100
+    ip            = "192.168.68.15/22"
+    startup_order = 6
+  }
+  k8s-w-03 = {
+    image         = "debian-13"
+    tags          = ["k8s", "worker", "debian"]
+    vm_id         = 116
+    cores         = 4
+    memory        = 8192
+    disk_gb       = 60
+    data_disk_gb  = 100
+    ip            = "192.168.68.16/22"
+    startup_order = 7
+  }
+  docker-01 = {
+    image         = "debian-13"
+    tags          = ["docker", "apps", "core", "debian"]
+    vm_id         = 117
+    cores         = 2
+    memory        = 8192
+    disk_gb       = 120
+    ip            = "192.168.68.17/22"
+    startup_order = 8
+  }
+}
+
+containers = {
+  dockhand = {
+    template     = "debian-13"
+    tags         = ["dockhand", "mgmt", "core"]
+    vm_id        = 118
+    cores        = 1
+    memory       = 1024
+    disk_gb      = 20
+    ip           = "192.168.68.18/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+  portainer = {
+    template     = "debian-13"
+    tags         = ["portainer", "mgmt", "core"]
+    vm_id        = 119
+    cores        = 1
+    memory       = 2048
+    disk_gb      = 20
+    ip           = "192.168.68.19/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+}
+
+backup_storage_enabled = true
+backup_storage_id      = "local-backup"
+backup_storage_path    = "/var/lib/vz/backups"
+
+backup_jobs = {
+  daily-all = {
+    schedule         = "*-*-* 02:00"
+    mode             = "snapshot"
+    compress         = "zstd"
+    all              = true
+    mailnotification = "failure"
+    prune_backups = {
+      keep-daily   = "7"
+      keep-weekly  = "4"
+      keep-monthly = "3"
+    }
+  }
+}

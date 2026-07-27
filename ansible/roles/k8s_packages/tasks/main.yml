@@ -1,0 +1,49 @@
+---
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Kubernetes apt signing key (pkgs.k8s.io)
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key"
+    dest: /tmp/kubernetes-apt-keyring.key
+    mode: "0644"
+
+- name: Install Kubernetes apt keyring
+  ansible.builtin.shell: |
+    set -euo pipefail
+    gpg --dearmor --yes -o {{ k8s_apt_keyring }} /tmp/kubernetes-apt-keyring.key
+  args:
+    creates: "{{ k8s_apt_keyring }}"
+
+- name: Add Kubernetes apt repository (pkgs.k8s.io)
+  ansible.builtin.copy:
+    dest: "{{ k8s_apt_list }}"
+    mode: "0644"
+    content: |
+      deb [signed-by={{ k8s_apt_keyring }}] https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/ /
+
+- name: Install kubelet kubeadm kubectl from pkgs.k8s.io v{{ k8s_version }}
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: true
+
+- name: Hold Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable kubelet
+  ansible.builtin.service:
+    name: kubelet
+    enabled: true

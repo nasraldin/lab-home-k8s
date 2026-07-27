@@ -1,0 +1,20 @@
+---
+- name: Create mailpit directory
+  ansible.builtin.file:
+    path: "{{ mailpit_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Deploy mailpit compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ mailpit_compose_dir }}/compose.yaml"
+    mode: "0640"
+
+- name: Start mailpit
+  ansible.builtin.command:
+    cmd: docker compose -f {{ mailpit_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ mailpit_compose_dir }}"
+  register: mp_up
+  changed_when: "'Started' in mp_up.stderr or 'Created' in mp_up.stderr or 'Running' in mp_up.stderr"

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Snapshot stacked etcd on this control-plane node.
+set -euo pipefail
+
+BACKUP_DIR="{{ etcd_backup_dir }}"
+RETAIN_DAYS="{{ etcd_backup_retain_days }}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT="${BACKUP_DIR}/etcd-${STAMP}.db"
+
+export ETCDCTL_API=3
+ETCDCTL=(etcdctl
+  --endpoints=https://127.0.0.1:2379
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt
+  --cert=/etc/kubernetes/pki/etcd/server.crt
+  --key=/etc/kubernetes/pki/etcd/server.key
+)
+
+# Prefer etcdctl from the etcd static pod if host binary is missing.
+if ! command -v etcdctl >/dev/null 2>&1; then
+  ETCD_POD="$(crictl pods --name etcd -q | head -n1 || true)"
+  if [[ -z "${ETCD_POD}" ]]; then
+    echo "etcdctl not found and etcd pod not running" >&2
+    exit 1
+  fi
+  # Fallback: copy via crictl exec is awkward; require host etcdctl for cron.
+  echo "Install etcd-client (etcdctl) on control planes for backups" >&2
+  exit 1
+fi
+
+mkdir -p "${BACKUP_DIR}"
+"${ETCDCTL[@]}" snapshot save "${OUT}"
+chmod 600 "${OUT}"
+find "${BACKUP_DIR}" -type f -name 'etcd-*.db' -mtime +"${RETAIN_DAYS}" -delete
+echo "Saved ${OUT}"

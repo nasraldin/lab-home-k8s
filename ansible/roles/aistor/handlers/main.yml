@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart AIStor
+  ansible.builtin.systemd:
+    name: aistor
+    state: restarted
