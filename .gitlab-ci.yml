@@ -11,6 +11,7 @@ include:
       - templates/terraform/destroy.yml
       - templates/ansible/check.yml
       - templates/ansible/apply.yml
+      - templates/security/gitleaks.yml
       - templates/security/trivy-filesystem.yml
 
 stages:
@@ -40,6 +41,12 @@ detect-services:
   artifacts:
     reports:
       dotenv: changed-services.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+security:gitleaks:
+  extends: .security_gitleaks
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
