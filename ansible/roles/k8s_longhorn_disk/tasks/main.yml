@@ -1,0 +1,130 @@
+---
+# Prepare the Terraform `data_disk_gb` disk for Longhorn.
+# Without this, Longhorn schedules replicas on the OS root disk (~60G) and
+# PVC provisioning fails with ReplicaSchedulingFailure / insufficient storage.
+
+- name: Ensure disk tools present
+  ansible.builtin.apt:
+    name:
+      - parted
+      - e2fsprogs
+      - util-linux
+    state: present
+    update_cache: true
+
+- name: Detect root block device
+  ansible.builtin.command: findmnt -n -o SOURCE /
+  register: longhorn_root_src
+  changed_when: false
+
+- name: Resolve root disk name
+  ansible.builtin.set_fact:
+    longhorn_root_disk: >-
+      {{ longhorn_root_src.stdout
+         | trim
+         | regex_replace('^/dev/', '')
+         | regex_replace('p?[0-9]+$', '') }}
+
+- name: List candidate data disks (unpartitioned, not root, large enough)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    root_disk="{{ longhorn_root_disk }}"
+    min_bytes=$(( {{ longhorn_disk_min_gb }} * 1024 * 1024 * 1024 ))
+    lsblk -dn -b -o NAME,SIZE,TYPE | while read -r name size type; do
+      [[ "$type" == "disk" ]] || continue
+      [[ "$name" == "$root_disk" ]] && continue
+      [[ "$size" -ge "$min_bytes" ]] || continue
+      # Count lines for this device; 1 means no child partitions yet
+      lines=$(lsblk -n "/dev/${name}" | wc -l)
+      if [[ "$lines" -eq 1 ]]; then
+        printf '%s %s\n' "$name" "$size"
+      fi
+    done | sort -k2 -nr | awk 'NR==1{print $1}'
+  args:
+    executable: /bin/bash
+  register: longhorn_candidate
+  changed_when: false
+
+- name: Skip when no unused data disk is present
+  ansible.builtin.debug:
+    msg: "No unpartitioned data disk found (root={{ longhorn_root_disk }}); skipping"
+  when: longhorn_candidate.stdout | trim | length == 0
+
+- name: Set data disk facts
+  when: longhorn_candidate.stdout | trim | length > 0
+  block:
+    - name: Device paths
+      ansible.builtin.set_fact:
+        longhorn_data_disk: "{{ longhorn_candidate.stdout | trim }}"
+        longhorn_data_dev: "/dev/{{ longhorn_candidate.stdout | trim }}"
+
+    - name: Check if {{ longhorn_disk_mount }} is already a mount
+      ansible.builtin.command: findmnt -n {{ longhorn_disk_mount }}
+      register: longhorn_default_mount
+      changed_when: false
+      failed_when: false
+
+    - name: Choose mount point (fresh vs live recovery)
+      ansible.builtin.set_fact:
+        longhorn_target_mount: "{{ longhorn_disk_mount if longhorn_default_mount.rc != 0 else '/mnt/longhorn-data' }}"
+
+    - name: Partition device name
+      ansible.builtin.set_fact:
+        longhorn_part_dev: >-
+          {{ longhorn_data_dev ~ 'p1'
+             if (longhorn_data_disk is match('^(nvme|mmcblk)'))
+             else longhorn_data_dev ~ '1' }}
+
+    - name: Create GPT + single partition
+      ansible.builtin.command:
+        cmd: parted -s {{ longhorn_data_dev }} mklabel gpt mkpart primary ext4 1MiB 100%
+        creates: "{{ longhorn_part_dev }}"
+
+    - name: Wait for partition node
+      ansible.builtin.wait_for:
+        path: "{{ longhorn_part_dev }}"
+        timeout: 30
+
+    - name: Probe existing filesystem
+      ansible.builtin.command: blkid -o value -s TYPE {{ longhorn_part_dev }}
+      register: longhorn_fs_type
+      changed_when: false
+      failed_when: false
+
+    - name: Format ext4
+      ansible.builtin.command:
+        cmd: mkfs.ext4 -F -L {{ longhorn_disk_label }} {{ longhorn_part_dev }}
+      when: longhorn_fs_type.stdout | trim | length == 0
+
+    - name: Read UUID
+      ansible.builtin.command: blkid -o value -s UUID {{ longhorn_part_dev }}
+      register: longhorn_fs_uuid
+      changed_when: false
+
+    - name: Ensure mount point
+      ansible.builtin.file:
+        path: "{{ longhorn_target_mount }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount and persist in fstab
+      ansible.posix.mount:
+        path: "{{ longhorn_target_mount }}"
+        src: "UUID={{ longhorn_fs_uuid.stdout | trim }}"
+        fstype: ext4
+        opts: defaults,noatime
+        state: mounted
+
+    - name: Write disk marker
+      ansible.builtin.copy:
+        dest: /etc/lab-home-k8s-longhorn-disk.env
+        mode: "0644"
+        content: |
+          LONGHORN_DATA_DEV={{ longhorn_data_dev }}
+          LONGHORN_DATA_PART={{ longhorn_part_dev }}
+          LONGHORN_MOUNT={{ longhorn_target_mount }}
+          LONGHORN_UUID={{ longhorn_fs_uuid.stdout | trim }}
+
+    - name: Report result
+      ansible.builtin.debug:
+        msg: "Longhorn data disk {{ longhorn_data_dev }} mounted at {{ longhorn_target_mount }}"

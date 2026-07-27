@@ -77,10 +77,55 @@ hang or fail the same way.
   - `scripts/seed-gitlab-gitops.sh` creates group/project and pushes `lab-home-gitops`
   - Root Application template uses `REPO_URL_PLACEHOLDER`
 
-### 9. GPU / Ollama (AI)
+### 10. GPU / Ollama (AI)
 
 - PCI mapping needed `subsystem-id`; VFIO bind; Ollama + `gemma4:12b` on `ai-01`.
 - Guest may still run CPU inference until ROCm/`amdgpu` in guest is finished (device visible; driver optional follow-up).
+
+### 11. Browser forces `https://gitlab.lab` while `/users/sign_in` works
+
+- **Server side:** `external_url 'http://gitlab.lab'` and `/` → `Location: http://gitlab.lab/users/sign_in` (no HSTS).
+- **Client side:** Chrome/Safari HTTPS-First or **cached HSTS** from the earlier `https://` Omnibus config.
+- **Fix:** Clear HSTS for `gitlab.lab` (Chrome: `chrome://net-internals/#hsts` → Delete), or use a private window. Prefer typed `http://gitlab.lab`.
+
+### 12. Public URLs: Cloudflare 1014 + tunnel down
+
+- **1014 CNAME Cross-User Banned:** zone had proxied wildcard `*.nasraldin.com` → `77980.bodis.com` (other CF customer). Names without an explicit tunnel CNAME (`argo`, `npm`, `grafana`, …) hit that wildcard.
+- **Fix:** Delete the Bodis wildcard; create CNAMEs → `9970638a-….cfargotunnel.com`; extend tunnel ingress (Argo `.100`, NPM `.21:81`, GitLab `.15`, Dockhand `.22`, …).
+- **Tunnel down / 530:** after reset, `pve01` had **no default route** in the kernel despite `gateway` in `/etc/network/interfaces`. `cloudflared` could not reach Cloudflare (`network is unreachable`).
+- **Fix:** `ip route replace default via 192.168.68.1 dev vmbr0` + `post-up` line on `vmbr0`. Stale tunnel origins (GitLab → `.14`) updated to `.15`.
+- **Grafana/Harbor public 530:** expected until Cilium LBs `.101`/`.102` exist (GitOps apps still syncing). Use `*.lab` / IPs on LAN.
+
+### 13. `npm.lab` / `npm.nasraldin.com` opened Nginx Proxy Manager
+
+- **Cause:** In this repo “NPM” meant **Nginx Proxy Manager** (`docker-01:81`), so DNS/tunnel pointed `npm.*` there.
+- **Expected:** **Verdaccio** (npm registry).
+- **Fix:** Verdaccio on Cilium LB `192.168.68.106:80`; `npm.lab` / `npm.nasraldin.com` → Verdaccio; Proxy Manager moved to `proxy.lab:81` / `proxy.nasraldin.com`.
+
+### 14. Argo apps OutOfSync / CrashLoop after clean reset
+
+- **Causes:**
+  1. `InfisicalSecret` `hostAPI` pointed at dead IP `192.168.68.10` (must be infra-01 `.14`).
+  2. AnythingLLM and Verdaccio both claimed LB `.106`; Harbor blocked when AnythingLLM took `.101`.
+  3. CNPG operator CrashLoop — CRDs not created (`Pooler` missing) + Kyverno requiring resource requests.
+  4. No CNPG `Cluster` — Keycloak/Sonar expected `postgres-rw.data.svc` that never existed.
+  5. Platform secrets assumed Infisical machine identity that is never created in bring-up.
+  6. `make bring-up` skipped GitOps seed + day-0 secrets + Longhorn wait.
+- **Fixes:**
+  - Correct `hostAPI` → `.14`; LB map Unique (AnythingLLM `.111`, Verdaccio `.106`, Harbor `.101`).
+  - CNPG Helm `crds.create: true` + resource requests; add `platform/data/postgres-cluster.yaml`.
+  - `scripts/apply-bootstrap-secrets.sh` + `wait-longhorn.sh`; `make bring-up` = ansible → seed-gitops → bootstrap → wait-longhorn → verify.
+  - Checklist: `docs/runbook/e2e-reset-checklist.md`.
+
+### 15. Longhorn PVCs faulted / `insufficient storage` (data disk never mounted)
+
+- **Symptom:** Volumes `detached/faulted`, `ReplicaSchedulingFailure`, apps stuck Pending; OS root (`~60Gi`) fills while Terraform `data_disk_gb=100` disks sit unused (`lsblk` shows extra 100G disk with no mount).
+- **Cause:** Terraform attaches a second disk for Longhorn, but **nothing formatted/mounted it** before Longhorn installed. Longhorn defaults to `/var/lib/longhorn` on the OS disk.
+- **Fix (in tree):**
+  1. Ansible role `k8s_longhorn_disk` (wired in `playbooks/k8s.yml` on workers) formats the unused data disk and mounts it at `/var/lib/longhorn` **before** Argo wave 30.
+  2. Right-size PVCs (Postgres `10Gi`, Loki/Tempo `10Gi`, AnythingLLM `8Gi`) so 2 replicas fit on 3×100Gi.
+  3. `scripts/wait-longhorn.sh` fails if Longhorn reports &lt;80Gi available (catches missing data disk early).
+- **Live recovery (already-provisioned cluster):** run the role on workers, re-register disks in Longhorn UI/CR if UUID mismatch, restart `engine-image` pods (binaries live under `/var/lib/longhorn`). Prefer a clean reset over remounting under a live Longhorn.
 
 ## Recommended clean reset path
 

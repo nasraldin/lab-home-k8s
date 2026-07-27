@@ -1,8 +1,13 @@
-.PHONY: tf-init tf-adopt tf-plan tf-apply ansible ansible-infra ansible-gitlab ansible-docker ansible-k8s bootstrap bring-up verify docs
+.PHONY: tf-init tf-adopt tf-plan tf-apply ansible ansible-infra ansible-gitlab ansible-docker ansible-k8s \
+	seed-gitops bootstrap-secrets wait-longhorn bootstrap bring-up verify docs
 
-# Order for a clean reset: terraform apply → make bring-up
-# bring-up = Ansible site + Cilium/Argo + verify (do not wait for Ready in Ansible;
-# nodes become Ready only after Cilium).
+# Clean reset order (see docs/runbook/e2e-reset-checklist.md):
+#   1. terraform apply
+#   2. make ansible
+#   3. mint GitLab PAT → make seed-gitops
+#   4. make bootstrap   (kubeconfig + Cilium + Argo + secrets)
+#   5. make wait-longhorn && make verify
+# Or: GITLAB_TOKEN=… GITOPS_TOKEN=… make bring-up
 
 tf-init:
 	cd terraform && terraform init
@@ -31,15 +36,30 @@ ansible-docker:
 ansible-k8s:
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/k8s.yml -e @secrets.yml
 
+# Push local lab-home-gitops → LAN GitLab (requires GITLAB_TOKEN)
+seed-gitops:
+	./scripts/seed-gitlab-gitops.sh
+
+# Day-0 secrets so Keycloak/Harbor/Grafana/CNPG work before Infisical identity
+bootstrap-secrets:
+	./scripts/apply-bootstrap-secrets.sh
+
+wait-longhorn:
+	./scripts/wait-longhorn.sh
+
 bootstrap:
 	./scripts/fetch-kubeconfig.sh
 	K8S_API_HOST=$${K8S_API_HOST:-192.168.68.17} ./scripts/install-cilium.sh
 	GITOPS_REPO=$${GITOPS_REPO:-http://192.168.68.15/homelab/lab-home-gitops.git} ./scripts/install-argocd.sh
+	./scripts/apply-bootstrap-secrets.sh
 
-bring-up: ansible bootstrap verify
+# Full path after terraform apply. Requires GITLAB_TOKEN + GITOPS_TOKEN (same PAT is fine).
+bring-up: ansible seed-gitops bootstrap wait-longhorn verify
 
 verify:
 	./scripts/verify.sh
 
 docs:
-	@echo "Documentation: https://nasraldin.github.io/dev-homelab/"
+	@echo "Runbook: docs/runbook/e2e-reset-checklist.md"
+	@echo "Issues:  docs/runbook/bring-up-issues-2026-07.md"
+	@echo "Site:    https://nasraldin.github.io/dev-homelab/"

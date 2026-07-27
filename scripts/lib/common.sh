@@ -12,6 +12,11 @@ need_cmd() {
   }
 }
 
+die() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
 require_cluster() {
   need_cmd kubectl
   kubectl cluster-info >/dev/null

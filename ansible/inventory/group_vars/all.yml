@@ -34,6 +34,7 @@ public_urls:
   minio: "https://minio.nasraldin.com"
   s3: "https://s3.nasraldin.com"
   npm: "https://npm.nasraldin.com"
+  proxy: "https://proxy.nasraldin.com"
   portainer: "https://portainer.nasraldin.com"
   dockhand: "https://docker.nasraldin.com"
 
@@ -49,7 +50,8 @@ tunnel_origins:
   keycloak: "http://{{ cilium_lb_ips.keycloak }}:80"
   minio: "http://{{ guest_ips['infra-01'] }}:9001"
   s3: "http://{{ guest_ips['infra-01'] }}:9000"
-  npm: "http://{{ guest_ips['docker-01'] }}:81"
+  npm: "http://{{ cilium_lb_ips.verdaccio }}:80"
+  proxy: "http://{{ guest_ips['docker-01'] }}:81"
   portainer: "https://{{ guest_ips['portainer'] }}:9443"
 
 # Hostnames that require Cloudflare Access OTP (same policy as homelab / docker)
@@ -58,12 +60,21 @@ tunnel_access_hostnames:
   - docker.nasraldin.com
 
 # Reserved Cilium LoadBalancer IPs (lab-pool 192.168.68.100–119)
+# Keep in sync with lab-home-gitops Helm values / lbipam annotations.
 cilium_lb_ips:
   argocd: "192.168.68.100"
-  harbor: "192.168.68.101"
+  harbor: "192.168.68.101" # conflict risk if AnythingLLM also requests .101
   grafana: "192.168.68.102"
   keycloak: "192.168.68.103"
   longhorn: "192.168.68.104"
+  librechat: "192.168.68.105"
+  verdaccio: "192.168.68.106"
+  n8n: "192.168.68.107"
+  litellm: "192.168.68.108"
+  open_webui: "192.168.68.109"
+  otel: "192.168.68.110"
+  anythingllm: "192.168.68.111"
+
 
 # Short LAN URLs (*.lab) — HTTP direct to backends; public *.nasraldin.com unchanged (Cloudflare).
 lab_urls:
@@ -77,7 +88,8 @@ lab_urls:
   longhorn: "http://longhorn.lab"
   minio: "http://minio.lab:9001"
   s3: "http://s3.lab:9000"
-  npm: "http://npm.lab:81"
+  npm: "http://npm.lab"
+  proxy: "http://proxy.lab:81"
   portainer: "https://portainer.lab:9443"
   dockhand: "http://dockhand.lab"
   adguard: "http://adguard.lab:3000"
@@ -86,6 +98,13 @@ lab_urls:
   ollama: "http://ollama.lab:11434"
   ai: "http://ai.lab:11434"
   kube_api: "https://kube.lab:6443"
+  n8n: "http://n8n.lab"
+  librechat: "http://librechat.lab:3080"
+  litellm: "http://litellm.lab:4000"
+  open_webui: "http://open-webui.lab"
+  anythingllm: "http://anythingllm.lab:3001"
+  verdaccio: "http://verdaccio.lab"
+
 
 # Internal lab.nasraldin.com records (Technitium authoritative zone)
 technitium_zone_records:
@@ -127,7 +146,9 @@ technitium_short_zone_records:
   - { name: "longhorn", value: "{{ cilium_lb_ips.longhorn }}" }
   - { name: "minio", value: "{{ guest_ips['infra-01'] }}" }
   - { name: "s3", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "npm", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "npm", value: "{{ cilium_lb_ips.verdaccio }}" }
+  - { name: "verdaccio", value: "{{ cilium_lb_ips.verdaccio }}" }
+  - { name: "proxy", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "portainer", value: "{{ guest_ips['portainer'] }}" }
   - { name: "dockhand", value: "{{ guest_ips['dockhand'] }}" }
   - { name: "docker", value: "{{ guest_ips['dockhand'] }}" }
@@ -137,6 +158,13 @@ technitium_short_zone_records:
   - { name: "infisical", value: "{{ guest_ips['infra-01'] }}" }
   - { name: "ollama", value: "{{ guest_ips['ai-01'] }}" }
   - { name: "ai", value: "{{ guest_ips['ai-01'] }}" }
+  - { name: "n8n", value: "{{ cilium_lb_ips.n8n }}" }
+  - { name: "librechat", value: "{{ cilium_lb_ips.librechat }}" }
+  - { name: "chat", value: "{{ cilium_lb_ips.librechat }}" }
+  - { name: "litellm", value: "{{ cilium_lb_ips.litellm }}" }
+  - { name: "open-webui", value: "{{ cilium_lb_ips.open_webui }}" }
+  - { name: "webui", value: "{{ cilium_lb_ips.open_webui }}" }
+  - { name: "anythingllm", value: "{{ cilium_lb_ips.anythingllm }}" }
   - { name: "gateway", value: "{{ gateway_ip }}" }
 
 # Technitium zones managed by ansible/roles/technitium_dns

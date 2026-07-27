@@ -18,6 +18,9 @@
   become: true
   roles:
     - k8s_kubeadm
+    # Format/mount Terraform data_disk_gb BEFORE Longhorn (Argo wave 30).
+    # Without this, Longhorn fills the OS root disk and PVCs fail to schedule.
+    - k8s_longhorn_disk
   tasks:
     - name: Install Longhorn node prerequisites
       ansible.builtin.apt:

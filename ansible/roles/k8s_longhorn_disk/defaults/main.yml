@@ -1,0 +1,10 @@
+---
+# Mount point Longhorn uses by default. On a fresh node this must be the
+# Terraform data disk (data_disk_gb) — not the OS root disk.
+longhorn_disk_mount: /var/lib/longhorn
+
+# Filesystem label (helps identify the volume in lsblk / blkid).
+longhorn_disk_label: LONGHORN
+
+# Minimum candidate size in GiB (skip tiny leftover disks / ISO).
+longhorn_disk_min_gb: 40
