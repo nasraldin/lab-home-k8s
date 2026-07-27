@@ -11,6 +11,7 @@ include:
       - templates/terraform/destroy.yml
       - templates/ansible/check.yml
       - templates/ansible/apply.yml
+      - templates/security/trivy-filesystem.yml
 
 stages:
   - .pre
@@ -42,3 +43,17 @@ detect-services:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+security:trivy-fs-scan:
+  extends: .security_trivy_filesystem
+  variables:
+    TRIVY_SCANNERS: "misconfig,secret"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - terraform/**/*
+        - ansible/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - terraform/**/*
+        - ansible/**/*
