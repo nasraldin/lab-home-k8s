@@ -50,7 +50,7 @@ MERGED="$(mktemp)"
 trap 'rm -f "${TMP}" "${MERGED}"' EXIT
 
 echo "==> Fetching admin.conf from ${CP_HOST}"
-ssh "${CP_HOST}" 'sudo cat /etc/kubernetes/admin.conf' > "${TMP}"
+ssh "${CP_HOST}" 'sudo cat /etc/kubernetes/admin.conf' >"${TMP}"
 chmod 600 "${TMP}"
 
 # Rewrite HA server URL + stable local names (cluster/user/context).
@@ -121,7 +121,7 @@ if [[ -f "${DEFAULT_CONFIG}" ]]; then
   fi
 
   echo "==> Merging into ${DEFAULT_CONFIG}"
-  KUBECONFIG="${WORK}:${TMP}" kubectl config view --flatten > "${MERGED}"
+  KUBECONFIG="${WORK}:${TMP}" kubectl config view --flatten >"${MERGED}"
   rm -f "${WORK}"
 else
   echo "==> Creating ${DEFAULT_CONFIG}"

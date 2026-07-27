@@ -37,5 +37,5 @@ kubectl apply -f "${ROOT}/config/cilium/lb-ipam-pool.yaml"
 kubectl apply -f "${ROOT}/config/cilium/l2-policy.yaml"
 
 echo "==> Cilium install complete"
-kubectl -n kube-system get pods -l app.kubernetes.io/part-of=cilium || \
+kubectl -n kube-system get pods -l app.kubernetes.io/part-of=cilium ||
   kubectl -n kube-system get pods -l k8s-app=cilium

@@ -47,7 +47,7 @@ while IFS= read -r line; do
       [[ -n "${COMPONENT}" ]] && GITOPS_COMPONENTS+=("${COMPONENT}")
     fi
   fi
-done < "${MAP_FILE}"
+done <"${MAP_FILE}"
 
 UNIQUE=$(printf '%s\n' "${SERVICES[@]}" | sort -u | tr '\n' ',' | sed 's/,$//')
 echo "CHANGED_SERVICES=${UNIQUE}"

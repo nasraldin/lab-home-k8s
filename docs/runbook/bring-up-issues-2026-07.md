@@ -6,17 +6,17 @@ hang or fail the same way.
 
 ## Canonical IP map (do not regress)
 
-| Guest | IP |
-|-------|-----|
-| `pve01` | `192.168.68.13` (**fixed**; never change on reset) |
-| `infra-01` | `.14` |
-| `gitlab-01` | `.15` |
-| `runner-01` | `.16` |
-| `k8s-cp-01` | `.17` |
-| `k8s-w-01..03` | `.18–.20` |
-| `docker-01` | `.21` |
-| `dockhand` / `portainer` / `ai-01` | `.22` / `.23` / `.24` |
-| Cilium LB | `.100–.119` |
+| Guest                              | IP                                                 |
+| ---------------------------------- | -------------------------------------------------- |
+| `pve01`                            | `192.168.68.13` (**fixed**; never change on reset) |
+| `infra-01`                         | `.14`                                              |
+| `gitlab-01`                        | `.15`                                              |
+| `runner-01`                        | `.16`                                              |
+| `k8s-cp-01`                        | `.17`                                              |
+| `k8s-w-01..03`                     | `.18–.20`                                          |
+| `docker-01`                        | `.21`                                              |
+| `dockhand` / `portainer` / `ai-01` | `.22` / `.23` / `.24`                              |
+| Cilium LB                          | `.100–.119`                                        |
 
 ## Issues and fixes
 

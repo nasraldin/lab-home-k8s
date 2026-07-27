@@ -5,17 +5,17 @@ Goal: Terraform + Ansible + GitOps bring every core service up **without ad-hoc 
 
 Canonical IP map is fixed — **do not move pve01 off `.13`**; guests start at `.14+`.
 
-| Guest | IP |
-|-------|-----|
-| pve01 | `.13` |
-| infra-01 | `.14` |
-| gitlab-01 | `.15` |
-| runner-01 | `.16` |
-| k8s-cp-01 | `.17` |
-| k8s-w-01..03 | `.18–.20` |
-| docker-01 | `.21` |
+| Guest                        | IP                    |
+| ---------------------------- | --------------------- |
+| pve01                        | `.13`                 |
+| infra-01                     | `.14`                 |
+| gitlab-01                    | `.15`                 |
+| runner-01                    | `.16`                 |
+| k8s-cp-01                    | `.17`                 |
+| k8s-w-01..03                 | `.18–.20`             |
+| docker-01                    | `.21`                 |
 | dockhand / portainer / ai-01 | `.22` / `.23` / `.24` |
-| Cilium LB pool | `.100–.119` |
+| Cilium LB pool               | `.100–.119`           |
 
 See also: [bring-up-issues-2026-07.md](./bring-up-issues-2026-07.md) · `CREDENTIALS.md` (gitignored)
 
@@ -67,15 +67,15 @@ make ansible
 
 **What this must leave healthy**
 
-| Host | Must be up |
-|------|------------|
-| infra-01 | AdGuard `:3000`, Technitium `:5380` (DNS on `127.0.0.1:5300`), Infisical `:8090`, AIStor `:9000/:9001` |
-| gitlab-01 | HTTP `:80`, registry `:5050`, `external_url http://gitlab.lab` |
-| runner-01 | Runner registered (or ready for token) |
-| k8s nodes | kubelet up, nodes **Registered** (Ready comes after Cilium) |
-| k8s workers | Terraform `data_disk_gb` **mounted at `/var/lib/longhorn`** (role `k8s_longhorn_disk`) |
-| docker-01 | Proxy Manager `:81`, it-tools `:1000`, Mailpit `:8025` |
-| ai-01 | Ollama `:11434` |
+| Host        | Must be up                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| infra-01    | AdGuard `:3000`, Technitium `:5380` (DNS on `127.0.0.1:5300`), Infisical `:8090`, AIStor `:9000/:9001` |
+| gitlab-01   | HTTP `:80`, registry `:5050`, `external_url http://gitlab.lab`                                         |
+| runner-01   | Runner registered (or ready for token)                                                                 |
+| k8s nodes   | kubelet up, nodes **Registered** (Ready comes after Cilium)                                            |
+| k8s workers | Terraform `data_disk_gb` **mounted at `/var/lib/longhorn`** (role `k8s_longhorn_disk`)                 |
+| docker-01   | Proxy Manager `:81`, it-tools `:1000`, Mailpit `:8025`                                                 |
+| ai-01       | Ollama `:11434`                                                                                        |
 
 **Verify**
 
@@ -154,34 +154,34 @@ kubectl -n argocd get secret repo-lab-home-gitops
 
 ## 5) GitOps sync waves (automatic — know the order)
 
-| Wave | What | Depends on |
-|------|------|------------|
-| 10–25 | cert-manager, metrics-server, ESO, Infisical operator, Kyverno, KEDA | Cluster Ready |
-| 30 | Longhorn | **Workers already have `/var/lib/longhorn` on the 100G data disk** (ansible) |
-| 40 | Data operators (CNPG, Redis, RabbitMQ, MariaDB) | Longhorn CRDs / SSA |
-| 41+ | CNPG `Cluster/postgres` + DB init Job | bootstrap secrets + Longhorn capacity |
-| 42–46 | Keycloak, Sonar, Harbor, Verdaccio | Postgres + secrets |
-| 50+ | Observability | grafana-admin secret |
-| 55–63 | LiteLLM, LibreChat, AnythingLLM, n8n, Open WebUI | Longhorn PVCs + LiteLLM |
+| Wave  | What                                                                 | Depends on                                                                   |
+| ----- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 10–25 | cert-manager, metrics-server, ESO, Infisical operator, Kyverno, KEDA | Cluster Ready                                                                |
+| 30    | Longhorn                                                             | **Workers already have `/var/lib/longhorn` on the 100G data disk** (ansible) |
+| 40    | Data operators (CNPG, Redis, RabbitMQ, MariaDB)                      | Longhorn CRDs / SSA                                                          |
+| 41+   | CNPG `Cluster/postgres` + DB init Job                                | bootstrap secrets + Longhorn capacity                                        |
+| 42–46 | Keycloak, Sonar, Harbor, Verdaccio                                   | Postgres + secrets                                                           |
+| 50+   | Observability                                                        | grafana-admin secret                                                         |
+| 55–63 | LiteLLM, LibreChat, AnythingLLM, n8n, Open WebUI                     | Longhorn PVCs + LiteLLM                                                      |
 
 **Hard dependency:** Ansible `k8s_longhorn_disk` → Longhorn (wave 30) → CNPG Cluster → Keycloak/Sonar. Never start Longhorn on the OS root disk.
 
 **Cilium LB IPs (must stay unique)**
 
-| IP | Owner |
-|----|--------|
-| `.100` | Argo CD |
-| `.101` | Harbor |
-| `.102` | Grafana |
-| `.103` | Keycloak |
-| `.104` | Longhorn UI |
-| `.105` | LibreChat |
+| IP     | Owner                 |
+| ------ | --------------------- |
+| `.100` | Argo CD               |
+| `.101` | Harbor                |
+| `.102` | Grafana               |
+| `.103` | Keycloak              |
+| `.104` | Longhorn UI           |
+| `.105` | LibreChat             |
 | `.106` | Verdaccio (`npm.lab`) |
-| `.107` | n8n |
-| `.108` | LiteLLM |
-| `.109` | Open WebUI |
-| `.110` | OTel collector |
-| `.111` | AnythingLLM |
+| `.107` | n8n                   |
+| `.108` | LiteLLM               |
+| `.109` | Open WebUI            |
+| `.110` | OTel collector        |
+| `.111` | AnythingLLM           |
 
 Never assign two apps the same LB IP.
 
@@ -266,17 +266,17 @@ Then tunnel bootstrap (separate repo) when public URLs are needed.
 
 ## 10) If something is wrong — look here first
 
-| Symptom | Likely cause | Fix location |
-|---------|--------------|--------------|
-| Argo `ComparisonError` / auth denied | Repo URL is public GitLab or bad PAT | `install-argocd.sh` + `GITOPS_TOKEN`; child apps must use LAN repo URL |
-| Harbor LB Pending | Another app stole `.101` | Check AnythingLLM / other `lbipam` annotations |
-| Keycloak/Sonar CrashLoop | No Postgres or missing secrets | `apply-bootstrap-secrets.sh` + CNPG cluster |
-| InfisicalSecret failures | `hostAPI` still `.10` or no universal-auth | gitops `infisical-secret.yaml`; create auth Secret |
-| CNPG CrashLoop `Pooler` CRD | CRDs not installed | `platform/data/apps.yaml` `crds.create: true` + SSA |
-| PVC Pending | Longhorn not Ready | `make wait-longhorn` before expecting apps |
-| `gitlab.lab` forces HTTPS | Browser HSTS / old Omnibus | Clear HSTS; `gitlab_external_url: http://gitlab.lab` |
-| Public 1014 | Wildcard CNAME to other CF customer | Delete Bodis wildcard; explicit tunnel CNAMEs |
-| Tunnel 530 | pve01 no default route | Restore gateway `.1` on vmbr0 |
-| `npm.*` shows Proxy Manager | Wrong tunnel/DNS origin | Verdaccio `.106`; Proxy `proxy.*` → `.21:81` |
+| Symptom                              | Likely cause                               | Fix location                                                           |
+| ------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------- |
+| Argo `ComparisonError` / auth denied | Repo URL is public GitLab or bad PAT       | `install-argocd.sh` + `GITOPS_TOKEN`; child apps must use LAN repo URL |
+| Harbor LB Pending                    | Another app stole `.101`                   | Check AnythingLLM / other `lbipam` annotations                         |
+| Keycloak/Sonar CrashLoop             | No Postgres or missing secrets             | `apply-bootstrap-secrets.sh` + CNPG cluster                            |
+| InfisicalSecret failures             | `hostAPI` still `.10` or no universal-auth | gitops `infisical-secret.yaml`; create auth Secret                     |
+| CNPG CrashLoop `Pooler` CRD          | CRDs not installed                         | `platform/data/apps.yaml` `crds.create: true` + SSA                    |
+| PVC Pending                          | Longhorn not Ready                         | `make wait-longhorn` before expecting apps                             |
+| `gitlab.lab` forces HTTPS            | Browser HSTS / old Omnibus                 | Clear HSTS; `gitlab_external_url: http://gitlab.lab`                   |
+| Public 1014                          | Wildcard CNAME to other CF customer        | Delete Bodis wildcard; explicit tunnel CNAMEs                          |
+| Tunnel 530                           | pve01 no default route                     | Restore gateway `.1` on vmbr0                                          |
+| `npm.*` shows Proxy Manager          | Wrong tunnel/DNS origin                    | Verdaccio `.106`; Proxy `proxy.*` → `.21:81`                           |
 
 Update `CREDENTIALS.md` after a successful bring-up if passwords rotated.
