@@ -119,13 +119,15 @@ hang or fail the same way.
 
 ### 15. Longhorn PVCs faulted / `insufficient storage` (data disk never mounted)
 
-- **Symptom:** Volumes `detached/faulted`, `ReplicaSchedulingFailure`, apps stuck Pending; OS root (`~60Gi`) fills while Terraform `data_disk_gb=100` disks sit unused (`lsblk` shows extra 100G disk with no mount).
-- **Cause:** Terraform attaches a second disk for Longhorn, but **nothing formatted/mounted it** before Longhorn installed. Longhorn defaults to `/var/lib/longhorn` on the OS disk.
-- **Fix (in tree):**
-  1. Ansible role `k8s_longhorn_disk` (wired in `playbooks/k8s.yml` on workers) formats the unused data disk and mounts it at `/var/lib/longhorn` **before** Argo wave 30.
-  2. Right-size PVCs (Postgres `10Gi`, Loki/Tempo `10Gi`, AnythingLLM `8Gi`) so 2 replicas fit on 3×100Gi.
-  3. `scripts/wait-longhorn.sh` fails if Longhorn reports &lt;80Gi available (catches missing data disk early).
-- **Live recovery (already-provisioned cluster):** run the role on workers, re-register disks in Longhorn UI/CR if UUID mismatch, restart `engine-image` pods (binaries live under `/var/lib/longhorn`). Prefer a clean reset over remounting under a live Longhorn.
+- **Symptom:** Volumes `detached/faulted`, `ReplicaSchedulingFailure`, apps stuck Pending; OS root (`~60Gi`) fills while Terraform `data_disk_gb=100` disks sit unused.
+- **Cause:** Terraform attaches a second disk for Longhorn, but **nothing formatted/mounted it** before Longhorn installed.
+- **Fix (in tree):** Ansible role `k8s_longhorn_disk`; right-size PVCs; `scripts/wait-longhorn.sh` checks disk capacity.
+
+### 16. Kyverno PolicyViolation warnings (require-resource-requests, hostNetwork)
+
+- **Symptom:** Many `PolicyViolation` Warning events on observability, harbor, verdaccio, cert-manager Deployments/StatefulSets.
+- **Cause:** Helm charts ship without `resources.requests`; Kyverno autogen rules audit controllers. node-exporter needs `hostNetwork`.
+- **Fix (in tree):** Add `resources.requests` in GitOps Helm values; exclude `observability` from `disallow-host-namespaces` only; RabbitMQ → `bitnamilegacy/*` images.
 
 ## Recommended clean reset path
 

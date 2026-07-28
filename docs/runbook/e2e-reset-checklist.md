@@ -149,6 +149,13 @@ kubectl -n argocd get secret repo-lab-home-gitops
 
 - [ ] Core verify checks pass
 - [ ] Argo UI: http://argo.lab (password from `argocd-initial-admin-secret`)
+- [ ] Kyverno: no `PolicyViolation` warnings on platform apps:
+
+```bash
+kubectl get events -A --field-selector type=Warning \
+  | rg -c 'PolicyViolation' || echo 0
+# Expect 0 after GitOps sync (cert-manager, observability, harbor, verdaccio, rabbitmq)
+```
 
 ---
 

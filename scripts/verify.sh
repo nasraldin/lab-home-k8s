@@ -50,6 +50,13 @@ print(sum(1 for a in apps for c in (a.get(\"status\") or {}).get(\"conditions\")
   [[ "${bad:-1}" == "0" ]]
 '
 
+warn "no Kyverno PolicyViolation warnings (recent)" bash -c '
+  count=$(kubectl get events -A --field-selector type=Warning 2>/dev/null \
+    | rg -c "PolicyViolation" || true)
+  count=${count:-0}
+  [[ "$count" -lt 5 ]]
+'
+
 echo
 if [[ "${fail}" -eq 0 ]]; then
   echo "verify: core checks passed"
