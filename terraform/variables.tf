@@ -198,6 +198,14 @@ variable "containers" {
     ip           = optional(string, "dhcp")
     unprivileged = optional(bool, true)
     os_type      = optional(string, "debian") # proxmox CT OS type: debian, ubuntu, …
+    # Host character devices for GPU LXC (paths must exist on node at apply).
+    # Example: /dev/dri/renderD128, /dev/kfd — see docs/operations/ollama-llm-01.md
+    device_passthrough = optional(list(object({
+      path = string
+      uid  = optional(number)
+      gid  = optional(number)
+      mode = optional(string, "0666")
+    })), [])
   }))
   default = {}
 }

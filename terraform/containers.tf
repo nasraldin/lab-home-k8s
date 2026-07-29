@@ -51,13 +51,37 @@ resource "proxmox_virtual_environment_container" "ct" {
     }
   }
 
+  dynamic "device_passthrough" {
+    for_each = { for i, d in each.value.device_passthrough : i => d }
+    content {
+      path = device_passthrough.value.path
+      uid  = try(device_passthrough.value.uid, null)
+      gid  = try(device_passthrough.value.gid, null)
+      mode = try(device_passthrough.value.mode, "0666")
+    }
+  }
+
   depends_on = [
     proxmox_virtual_environment_pool.pool,
     proxmox_node_disk_zfs.pool,
   ]
 
   # Debian 13 / systemd 257 in unprivileged CT needs nesting for Docker-ish stacks.
-  features {
-    nesting = true
+  # Privileged containers: API tokens cannot set feature flags (root@pam only) — skip nesting.
+  dynamic "features" {
+    for_each = each.value.unprivileged ? [1] : []
+    content {
+      nesting = true
+    }
+  }
+
+  # Privileged CTs (device passthrough / features) must be set as root@pam; ignore API drift.
+  lifecycle {
+    ignore_changes = [
+      features,
+      initialization, # ssh keys / cloud-init not always readable after pct create
+      operating_system[0].template_file_id,
+      network_interface[0].mac_address,
+    ]
   }
 }

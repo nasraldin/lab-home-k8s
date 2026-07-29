@@ -1,4 +1,5 @@
-# Single-lab VM inventory — VMIDs 110–117, LXC 118–119. Copy to terraform.tfvars.
+# Single-lab inventory — post 2026-07-30 restructure. Copy to terraform.tfvars.
+# VMs 111–117/120; LXCs 121–125 (DNS, Infisical, jumpbox, llm-01). Destroyed: 110, 118, 119.
 
 proxmox_endpoint = "https://pve01.lab.nasraldin.com:8006/"
 node_name        = "pve01"
@@ -34,20 +35,13 @@ lxc_templates = {
     url       = "http://download.proxmox.com/images/system/debian-13-standard_13.1-2_amd64.tar.zst"
     file_name = "debian-13-standard_13.1-2_amd64.tar.zst"
   }
+  "ubuntu-24.04" = {
+    url       = "http://download.proxmox.com/images/system/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+    file_name = "ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+  }
 }
 
 vms = {
-  infra-01 = {
-    image            = "debian-13"
-    tags             = ["infra", "core", "debian", "docker"]
-    vm_id            = 110
-    cores            = 4
-    memory           = 10240
-    disk_gb          = 400
-    ip               = "192.168.68.14/22"
-    startup_order    = 1
-    startup_up_delay = 15
-  }
   gitlab-01 = {
     image         = "debian-13"
     tags          = ["gitlab", "core", "debian"]
@@ -56,7 +50,7 @@ vms = {
     memory        = 12288
     disk_gb       = 150
     ip            = "192.168.68.15/22"
-    startup_order = 2
+    startup_order = 4
   }
   runner-01 = {
     image         = "debian-13"
@@ -66,7 +60,7 @@ vms = {
     memory        = 4096
     disk_gb       = 40
     ip            = "192.168.68.16/22"
-    startup_order = 3
+    startup_order = 5
   }
   k8s-cp-01 = {
     image         = "debian-13"
@@ -76,7 +70,7 @@ vms = {
     memory        = 4096
     disk_gb       = 40
     ip            = "192.168.68.17/22"
-    startup_order = 4
+    startup_order = 6
   }
   k8s-w-01 = {
     image         = "debian-13"
@@ -85,9 +79,9 @@ vms = {
     cores         = 4
     memory        = 12288
     disk_gb       = 60
-    data_disk_gb  = 100
+    data_disk_gb  = 700
     ip            = "192.168.68.18/22"
-    startup_order = 5
+    startup_order = 7
   }
   k8s-w-02 = {
     image         = "debian-13"
@@ -96,9 +90,9 @@ vms = {
     cores         = 4
     memory        = 12288
     disk_gb       = 60
-    data_disk_gb  = 100
+    data_disk_gb  = 700
     ip            = "192.168.68.19/22"
-    startup_order = 6
+    startup_order = 8
   }
   k8s-w-03 = {
     image         = "debian-13"
@@ -107,9 +101,9 @@ vms = {
     cores         = 4
     memory        = 12288
     disk_gb       = 60
-    data_disk_gb  = 100
+    data_disk_gb  = 700
     ip            = "192.168.68.20/22"
-    startup_order = 7
+    startup_order = 9
   }
   docker-01 = {
     image         = "debian-13"
@@ -119,58 +113,93 @@ vms = {
     memory        = 8192
     disk_gb       = 120
     ip            = "192.168.68.21/22"
-    startup_order = 8
+    startup_order = 10
   }
-  # Ollama + gemma4:12b — Radeon 890M passthrough (NPU cannot VFIO).
-  # hugepages require root@pam — Terraform API tokens get HTTP 500 if they write it.
-  # After first create: ssh root@pve01 'qm set 120 --hugepages 2'
-  # Keep hugepages = "2" in TF so NUMA/floating match; module lifecycle ignores the write.
+  # Standby — Ollama lives on llm-01. Do not re-attach hostpci while llm-01 is active.
   ai-01 = {
     image            = "debian-13"
-    tags             = ["ai", "ollama", "gpu", "gemma4"]
+    tags             = ["ai", "standby", "decommission-pending"]
     vm_id            = 120
     cores            = 8
     memory           = 16384
     disk_gb          = 150
     ip               = "192.168.68.24/22"
-    startup_order    = 9
-    hostpci_mappings = ["ai-igpu"]
+    startup_order    = 11
+    hostpci_mappings = []
     hugepages        = "2"
   }
 }
 
-# PCI mapping for ai-01 — confirm BDF on the node before apply.
+# Reserved for VFIO rollback only; llm-01 uses LXC device passthrough.
 pci_mappings = {
   ai-igpu = {
     id          = "1002:150e" # verify: lspci -nn -s c6:00.0
     path        = "0000:c6:00.0"
     iommu_group = 22
-    comment     = "Radeon 890M iGPU for Ollama (gemma4:12b)"
+    comment     = "Radeon 890M iGPU — reserved; LXC llm-01 is active path"
   }
 }
 
 containers = {
-  dockhand = {
+  adguard-01 = {
     template     = "debian-13"
-    tags         = ["dockhand", "mgmt", "core"]
-    vm_id        = 118
+    tags         = ["dns", "adguard", "core"]
+    vm_id        = 121
     cores        = 1
-    memory       = 1024
-    disk_gb      = 20
-    ip           = "192.168.68.22/22"
+    memory       = 512
+    disk_gb      = 10
+    ip           = "192.168.68.10/22"
     unprivileged = true
     os_type      = "debian"
   }
-  portainer = {
+  dns-01 = {
     template     = "debian-13"
-    tags         = ["portainer", "mgmt", "core"]
-    vm_id        = 119
+    tags         = ["dns", "technitium", "core"]
+    vm_id        = 122
     cores        = 1
-    memory       = 1024
-    disk_gb      = 20
-    ip           = "192.168.68.23/22"
+    memory       = 512
+    disk_gb      = 10
+    ip           = "192.168.68.11/22"
     unprivileged = true
     os_type      = "debian"
+  }
+  infisical-01 = {
+    template     = "debian-13"
+    tags         = ["infisical", "secrets", "core"]
+    vm_id        = 123
+    cores        = 2
+    memory       = 4096
+    disk_gb      = 40
+    ip           = "192.168.68.25/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+  infra-01 = {
+    template     = "debian-13"
+    tags         = ["infra", "jumpbox", "core"]
+    vm_id        = 124
+    cores        = 2
+    memory       = 2048
+    disk_gb      = 20
+    ip           = "192.168.68.14/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+  llm-01 = {
+    template     = "ubuntu-24.04"
+    tags         = ["ai", "ollama", "gpu", "llm"]
+    vm_id        = 125
+    cores        = 8
+    memory       = 24576
+    disk_gb      = 100
+    ip           = "192.168.68.26/22"
+    unprivileged = false
+    os_type      = "ubuntu"
+    device_passthrough = [
+      { path = "/dev/dri/renderD128", gid = 44, mode = "0666" },
+      { path = "/dev/dri/card1", gid = 44, mode = "0666" },
+      { path = "/dev/kfd", gid = 993, mode = "0666" },
+    ]
   }
 }
 
