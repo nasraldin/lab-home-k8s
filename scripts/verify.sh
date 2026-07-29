@@ -41,7 +41,7 @@ warn() {
 }
 
 warn "CNPG Cluster CRD" kubectl get crd clusters.postgresql.cnpg.io >/dev/null 2>&1
-warn "postgres Cluster object" kubectl -n data get cluster postgres >/dev/null 2>&1
+warn "postgres Cluster object" kubectl -n database get cluster postgres >/dev/null 2>&1
 warn "Argo LB .100" bash -c 'kubectl -n argocd get svc argocd-server -o jsonpath="{.status.loadBalancer.ingress[0].ip}" 2>/dev/null | grep -q 192.168.68.100'
 warn "no ComparisonError on root children" bash -c '
   bad=$(kubectl -n argocd get applications -o json 2>/dev/null \

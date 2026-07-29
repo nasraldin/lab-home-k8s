@@ -4,19 +4,29 @@ Record of failures hit during the home-lab factory reset and the code/runbook
 fixes applied so the next `terraform apply` → `make bring-up` path does not
 hang or fail the same way.
 
+**Topology updates (2026-07-30):** DNS → `adguard-01`/`.10` + `dns-01`/`.11`;
+Infisical → `infisical-01`/`.25`; Docker apps → `docker-01`/`.21`; Ollama →
+`llm-01`/`.26`. See [lab-restructure-2026-07-30](../../../docs/operations/lab-restructure-2026-07-30.md).
+Historical issue text may still mention “Infisical on infra-01” — treat those as
+pre-restructure unless noted.
+
 ## Canonical IP map (do not regress)
 
-| Guest                              | IP                                                 |
-| ---------------------------------- | -------------------------------------------------- |
-| `pve01`                            | `192.168.68.13` (**fixed**; never change on reset) |
-| `infra-01`                         | `.14`                                              |
-| `gitlab-01`                        | `.15`                                              |
-| `runner-01`                        | `.16`                                              |
-| `k8s-cp-01`                        | `.17`                                              |
-| `k8s-w-01..03`                     | `.18–.20`                                          |
-| `docker-01`                        | `.21`                                              |
-| `dockhand` / `portainer` / `ai-01` | `.22` / `.23` / `.24`                              |
-| Cilium LB                          | `.100–.119`                                        |
+| Guest | IP |
+| ----- | -- |
+| `pve01` | `192.168.68.13` (**fixed**) |
+| `adguard-01` / `dns-01` | `.10` / `.11` |
+| `infra-01` | `.14` (jumpbox after drain) |
+| `gitlab-01` | `.15` |
+| `runner-01` | `.16` |
+| `k8s-cp-01` | `.17` |
+| `k8s-w-01..03` | `.18–.20` |
+| `docker-01` | `.21` |
+| dockhand / portainer LXCs (legacy) | `.22` / `.23` |
+| `ai-01` (standby) | `.24` |
+| `infisical-01` | `.25` |
+| `llm-01` | `.26` |
+| Cilium LB | `.100–.119` |
 
 ## Issues and fixes
 
@@ -79,8 +89,10 @@ hang or fail the same way.
 
 ### 10. GPU / Ollama (AI)
 
-- PCI mapping needed `subsystem-id`; VFIO bind; Ollama + `gemma4:12b` on `ai-01`.
-- Guest may still run CPU inference until ROCm/`amdgpu` in guest is finished (device visible; driver optional follow-up).
+- **Current path:** privileged LXC `llm-01` with host `amdgpu` device passthrough
+  — [ollama-llm-01.md](../../../docs/operations/ollama-llm-01.md).
+- **Standby:** `ai-01` VFIO VM kept until `ollama ps` shows GPU on llm-01.
+- Historical: PCI mapping needed `subsystem-id`; VFIO bind on `ai-01`.
 
 ### 11. Browser forces `https://gitlab.lab` while `/users/sign_in` works
 
@@ -105,17 +117,20 @@ hang or fail the same way.
 ### 14. Argo apps OutOfSync / CrashLoop after clean reset
 
 - **Causes:**
-  1. `InfisicalSecret` `hostAPI` pointed at dead IP `192.168.68.10` (must be infra-01 `.14`).
+  1. InfisicalSecret `hostAPI` pointed at wrong IP (must track Infisical host —
+     now **`infisical-01` `.25`**, was infra-01 `.14` / mistaken `.10`).
   2. AnythingLLM and Verdaccio both claimed LB `.106`; Harbor blocked when AnythingLLM took `.101`.
   3. CNPG operator CrashLoop — CRDs not created (`Pooler` missing) + Kyverno requiring resource requests.
-  4. No CNPG `Cluster` — Keycloak/Sonar expected `postgres-rw.data.svc` that never existed.
+  4. No CNPG `Cluster` — Keycloak/Sonar expected Postgres Service that never existed.
   5. Platform secrets assumed Infisical machine identity that is never created in bring-up.
   6. `make bring-up` skipped GitOps seed + day-0 secrets + Longhorn wait.
 - **Fixes:**
-  - Correct `hostAPI` → `.14`; LB map Unique (AnythingLLM `.111`, Verdaccio `.106`, Harbor `.101`).
-  - CNPG Helm `crds.create: true` + resource requests; add `platform/data/postgres-cluster.yaml`.
-  - `scripts/apply-bootstrap-secrets.sh` + `wait-longhorn.sh`; `make bring-up` = ansible → seed-gitops → bootstrap → wait-longhorn → verify.
-  - Checklist: `docs/runbook/e2e-reset-checklist.md`.
+  - Correct `hostAPI` → Infisical LAN (`http://192.168.68.25:8090/api` post-restructure); LB map unique.
+  - CNPG Helm `crds.create: true` + MariaDB **operator CRDs** chart; resource requests; postgres Cluster.
+  - LibreChat Mongo Deployment `strategy: Recreate` (PVC).
+  - Kyverno: `policyReportsCleanup.enabled: false`; cleanup images from `registry.k8s.io/kubectl`.
+  - GitLab runner: token Secret, URL via `.15` + `hostAliases`, KEDA `minReplicaCount: 1`.
+  - `scripts/apply-bootstrap-secrets.sh` + `wait-longhorn.sh`; checklist updated.
 
 ### 15. Longhorn PVCs faulted / `insufficient storage` (data disk never mounted)
 
@@ -147,5 +162,6 @@ make verify
 
 - `kubectl get nodes` → 4 Ready
 - `./scripts/verify.sh` → OK
-- Infisical / NPM / Ollama / GitLab sign-in / runner verify → healthy on LAN
+- Infisical (`.25`) / NPM (docker-01) / Ollama (`llm-01`) / GitLab / runner → healthy on LAN
 - Argo `root` Application reaches GitOps over LAN URL
+- Namespaces match taxonomy (`ai-tools`, `gitops`, …) — unused per-app NS pruned when empty

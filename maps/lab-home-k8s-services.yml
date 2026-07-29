@@ -4,6 +4,8 @@ infra-01:
     - ansible/roles/technitium_dns/**
     - ansible/inventory/group_vars/all.yml
     - config/public-urls.yml
+    - ansible/roles/proxy/**
+    - ansible/roles/stalwart/**
     - ansible/roles/infisical/**
     - ansible/roles/aistor/**
     - ansible/playbooks/infra.yml
@@ -30,7 +32,6 @@ runner-01:
 
 docker-01:
   paths:
-    - ansible/roles/npm/**
     - ansible/roles/it_tools/**
     - ansible/roles/mailpit/**
     - ansible/playbooks/docker-hosts.yml

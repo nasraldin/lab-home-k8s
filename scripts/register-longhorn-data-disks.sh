@@ -14,7 +14,7 @@ MOUNT_CANDIDATES=("/var/lib/longhorn" "/mnt/longhorn-data")
 
 echo "==> Registering Longhorn data disks on workers"
 
-kubectl -n longhorn-system get nodes.longhorn.io -o name | while read -r node_ref; do
+kubectl -n storage get nodes.longhorn.io -o name | while read -r node_ref; do
   node="${node_ref##*/}"
   echo "--- $node ---"
   # Resolve node InternalIP for SSH
@@ -45,7 +45,7 @@ node, path = sys.argv[1], sys.argv[2]
 if not path.endswith("/"):
     path = path + "/"
 raw = subprocess.check_output(
-    ["kubectl", "-n", "longhorn-system", "get", "nodes.longhorn.io", node, "-o", "json"],
+    ["kubectl", "-n", "storage", "get", "nodes.longhorn.io", node, "-o", "json"],
     text=True,
 )
 doc = json.loads(raw)
@@ -75,7 +75,7 @@ for name, d in disks.items():
         d["allowScheduling"] = False
 
 subprocess.run(
-    ["kubectl", "-n", "longhorn-system", "apply", "-f", "-"],
+    ["kubectl", "-n", "storage", "apply", "-f", "-"],
     input=json.dumps(doc),
     text=True,
     check=True,
@@ -85,5 +85,5 @@ PY
 done
 
 echo "==> Longhorn node disk summary"
-kubectl -n longhorn-system get nodes.longhorn.io \
+kubectl -n storage get nodes.longhorn.io \
   -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,SCHED:.spec.allowScheduling'

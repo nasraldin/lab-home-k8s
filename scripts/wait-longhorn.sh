@@ -20,14 +20,14 @@ done
 
 echo "==> Waiting for Longhorn manager DaemonSet Ready"
 deadline=$((SECONDS + TIMEOUT))
-until kubectl -n longhorn-system get ds longhorn-manager >/dev/null 2>&1; do
+until kubectl -n storage get ds longhorn-manager >/dev/null 2>&1; do
   if ((SECONDS >= deadline)); then
     die "longhorn-manager DaemonSet missing"
   fi
   sleep 5
 done
 
-kubectl -n longhorn-system rollout status ds/longhorn-manager --timeout="${TIMEOUT}s"
+kubectl -n storage rollout status ds/longhorn-manager --timeout="${TIMEOUT}s"
 
 echo "==> Checking Longhorn node disks report >= ${MIN_DISK_GB}Gi available"
 deadline=$((SECONDS + TIMEOUT))
@@ -41,11 +41,11 @@ while true; do
     if ((gb < MIN_DISK_GB)); then
       ok=0
     fi
-  done < <(kubectl -n longhorn-system get nodes.longhorn.io -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.diskStatus.*.storageAvailable}{"\n"}{end}' 2>/dev/null || true)
+  done < <(kubectl -n storage get nodes.longhorn.io -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.diskStatus.*.storageAvailable}{"\n"}{end}' 2>/dev/null || true)
 
   if ((ok == 1)); then
     # Ensure at least one worker reported
-    count=$(kubectl -n longhorn-system get nodes.longhorn.io --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    count=$(kubectl -n storage get nodes.longhorn.io --no-headers 2>/dev/null | wc -l | tr -d ' ')
     if ((count >= 1)); then
       break
     fi
