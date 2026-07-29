@@ -1,0 +1,16 @@
+---
+# Ollama + ROCm userspace on privileged LXC (llm-01).
+ollama_host: "0.0.0.0:11434"
+ollama_igpu_enable: "1"
+ollama_flash_attention: "1"
+ollama_context_length: "4096"
+# Strix Point / Radeon 890M (RDNA3.5). Set empty string to skip override once rocminfo is clean.
+ollama_hsa_override_gfx_version: "11.5.0"
+ollama_models:
+  - gemma4:12b
+  - qwen3.5:9b
+# Official amdgpu-install for Ubuntu 24.04 (noble). --no-dkms: host owns the kernel module.
+rocm_amdgpu_install_deb_url: >-
+  https://repo.radeon.com/amdgpu-install/6.4.1/ubuntu/noble/amdgpu-install_6.4.60401-1_all.deb
+rocm_install_usecase: "rocm"
+rocm_no_dkms: true

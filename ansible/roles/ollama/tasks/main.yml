@@ -1,0 +1,152 @@
+---
+- name: Detect GPU devices inside CT
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /dev/dri/renderD128
+    - /dev/kfd
+  register: ollama_gpu_devs
+
+- name: Warn if GPU devices missing
+  ansible.builtin.debug:
+    msg: >-
+      Missing {{ item.item }} — host must load amdgpu and pass devices into this CT
+      (see scripts/host-igpu-for-lxc.sh + terraform device_passthrough).
+  loop: "{{ ollama_gpu_devs.results }}"
+  when: not item.stat.exists
+
+- name: Install base packages for ROCm / Ollama
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - wget
+      - gnupg
+      - libnuma1
+      - python3
+      - zstd
+    state: present
+    update_cache: true
+
+- name: Download amdgpu-install package
+  ansible.builtin.get_url:
+    url: "{{ rocm_amdgpu_install_deb_url }}"
+    dest: /tmp/amdgpu-install.deb
+    mode: "0644"
+  register: ollama_amdgpu_deb
+
+- name: Install amdgpu-install
+  ansible.builtin.apt:
+    deb: /tmp/amdgpu-install.deb
+    state: present
+
+- name: Install ROCm userspace (no DKMS — host owns amdgpu)
+  ansible.builtin.command:
+    cmd: >-
+      amdgpu-install -y --usecase={{ rocm_install_usecase }}
+      {{ '--no-dkms' if rocm_no_dkms else '' }}
+  register: ollama_rocm_install
+  changed_when: "'rocm' in (ollama_rocm_install.stdout | default('')) or ollama_rocm_install.rc == 0"
+  failed_when: false
+  args:
+    creates: /opt/rocm/bin/rocminfo
+
+- name: Note ROCm install result
+  ansible.builtin.debug:
+    msg: >-
+      ROCm amdgpu-install rc={{ ollama_rocm_install.rc | default('n/a') }}.
+      Ollama ships its own ROCm libs; continue even if amdgpu-install is partial.
+  when: ollama_rocm_install is defined
+
+- name: Install Ollama
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if command -v ollama >/dev/null 2>&1; then
+      ollama --version
+      exit 0
+    fi
+    curl -fsSL https://ollama.com/install.sh | sh
+  args:
+    executable: /bin/bash
+    creates: /usr/local/bin/ollama
+  register: ollama_install
+
+- name: Ensure ollama user in video/render groups
+  ansible.builtin.user:
+    name: ollama
+    groups: video,render
+    append: true
+  failed_when: false
+
+- name: Create systemd drop-in directory for Ollama
+  ansible.builtin.file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    mode: "0755"
+
+- name: Configure Ollama environment (IGPU + LAN bind)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ollama.service.d/override.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST={{ ollama_host }}"
+      Environment="OLLAMA_IGPU_ENABLE={{ ollama_igpu_enable }}"
+      Environment="OLLAMA_FLASH_ATTENTION={{ ollama_flash_attention }}"
+      Environment="OLLAMA_CONTEXT_LENGTH={{ ollama_context_length }}"
+      {% if ollama_hsa_override_gfx_version | length > 0 %}
+      Environment="HSA_OVERRIDE_GFX_VERSION={{ ollama_hsa_override_gfx_version }}"
+      {% endif %}
+  notify: Restart ollama
+
+- name: Enable and start Ollama
+  ansible.builtin.systemd:
+    name: ollama
+    enabled: true
+    state: started
+    daemon_reload: true
+
+
+- name: Allow Ollama API through UFW
+  community.general.ufw:
+    rule: allow
+    port: "11434"
+    proto: tcp
+    from_ip: "{{ lab_cidr }}"
+    comment: ollama
+  when: guest_ufw_enabled | default(true) | bool
+
+
+- name: Wait for Ollama API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:11434/api/tags"
+    method: GET
+  register: ollama_tags
+  until: ollama_tags.status == 200
+  retries: 30
+  delay: 2
+
+- name: Pull required models
+  ansible.builtin.command:
+    cmd: "ollama pull {{ item }}"
+  loop: "{{ ollama_models }}"
+  register: ollama_pull
+  changed_when: "'pulling' in (ollama_pull.stdout | default('')) or ollama_pull.rc == 0"
+  async: 3600
+  poll: 15
+
+- name: Capture rocminfo summary (best-effort)
+  ansible.builtin.shell: |
+    set -e
+    if command -v rocminfo >/dev/null 2>&1; then
+      rocminfo | grep -E 'Name:|Marketing Name|gfx' | head -40
+    else
+      echo "rocminfo not installed"
+    fi
+  register: ollama_rocminfo
+  changed_when: false
+  failed_when: false
+
+- name: Show rocminfo
+  ansible.builtin.debug:
+    var: ollama_rocminfo.stdout_lines

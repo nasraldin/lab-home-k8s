@@ -1,0 +1,4 @@
+# Ollama LXC 125 — privileged Ubuntu, root only
+ansible_user: root
+guest_extra_ufw_rules:
+  - { rule: allow, port: "11434", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-ollama }

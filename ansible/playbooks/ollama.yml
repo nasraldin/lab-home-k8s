@@ -1,0 +1,11 @@
+---
+# Ollama on privileged LXC llm-01 (GPU device passthrough).
+# Prerequisites:
+#   1) Host amdgpu (scripts/host-igpu-for-lxc.sh + reboot)
+#   2) Terraform CT llm-01 applied with device_passthrough
+- name: Ollama / ROCm on llm-01
+  hosts: llm_hosts
+  become: true
+  roles:
+    - guest_common
+    - ollama
