@@ -22,6 +22,14 @@ ANSIBLE_LIMIT="${ANSIBLE_LIMIT:-}"
 ANSIBLE_SECRETS="${ANSIBLE_SECRETS:-}"
 ANSIBLE_CHECK="${ANSIBLE_CHECK:-false}"
 
+# GitLab CI circular vars (ANSIBLE_LIMIT: $ANSIBLE_LIMIT) leave literal "$NAME".
+if [[ "${ANSIBLE_PLAYBOOK}" == *'$'* ]]; then
+  ANSIBLE_PLAYBOOK="playbooks/infra.yml"
+fi
+if [[ "${ANSIBLE_LIMIT}" == *'$'* ]]; then
+  ANSIBLE_LIMIT=""
+fi
+
 if [[ -z "${ANSIBLE_SECRETS}" ]]; then
   if [[ -f "${ROOT}/secrets.yml" ]]; then
     ANSIBLE_SECRETS="${ROOT}/secrets.yml"
