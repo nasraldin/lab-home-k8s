@@ -35,8 +35,8 @@ projects:
       - { key: PGADMIN_EMAIL, from: vault_pgadmin_email, path: /database }
       - { key: PGADMIN_PASSWORD, from: vault_pgadmin_password, path: /database }
       - { key: GITLAB_ROOT_PASSWORD, from: vault_gitlab_root_password, path: /gitlab }
-      - { key: NPM_ADMIN_EMAIL, from: vault_npm_admin_email, path: /npm }
-      - { key: NPM_ADMIN_PASSWORD, from: vault_npm_admin_password, path: /npm }
+      - { key: PROXY_ADMIN_EMAIL, from: vault_proxy_admin_email, path: /proxy }
+      - { key: PROXY_ADMIN_PASSWORD, from: vault_proxy_admin_password, path: /proxy }
 
   - slug: pipelines
     name: Pipelines

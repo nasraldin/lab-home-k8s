@@ -1,21 +1,29 @@
 ---
 # Infisical self-host (Docker Compose) — application env-secrets plane.
-# Runs on infra-01 in the home lab (inventory group infisical).
+# Dedicated LXC infisical-01 (inventory group infisical).
+# Official docs: https://infisical.com/docs/self-hosting/deployment-options/docker-compose
 # App secrets in Infisical; seed via playbooks/infisical-seed.yml.
 
 infisical_compose_dir: /opt/infisical
 infisical_image: "infisical/infisical"
 infisical_image_tag: "v0.147.0"
+# Prefer redis-stack-server pattern from Ajrly only when modules needed; Infisical needs plain Redis.
 infisical_redis_image: "redis:7-alpine"
+infisical_redis_password: "{{ vault_infisical_redis_password | default(vault_infisical_postgres_password) }}"
+infisical_redis_maxmemory: "256mb"
 
 infisical_http_port: 8090
-# LAN direct URL (NPM owns :80/:443 on docker-01 — do not bind Infisical to :80)
+# LAN / site URL — update InfisicalSecret operator endpoints after move
 infisical_site_url: "http://{{ ansible_host }}:{{ infisical_http_port }}"
 
-# Local Postgres in Infisical compose (no database-01 / PgCat in home lab)
+# Local Postgres in Infisical compose (home lab has no database-01 / PgCat).
+# PgCat omitted: single Infisical backend → direct Postgres is the official shape.
 infisical_postgres_image: "postgres:16-alpine"
 infisical_pg_host: "db"
 infisical_pg_port: 5432
+infisical_postgres_shared_buffers: "256MB"
+infisical_postgres_max_connections: "100"
+infisical_postgres_effective_cache_size: "1GB"
 
 infisical_encryption_key: "{{ vault_infisical_encryption_key }}"
 infisical_auth_secret: "{{ vault_infisical_auth_secret }}"

@@ -1,0 +1,160 @@
+---
+- name: Install operator base toolchain
+  ansible.builtin.apt:
+    name: "{{ infra_operator_packages }}"
+    state: present
+    update_cache: true
+
+- name: Create APT keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install HashiCorp repository key
+  ansible.builtin.get_url:
+    url: "{{ infra_hashicorp_key_url }}"
+    dest: "{{ infra_hashicorp_key_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure HashiCorp repository
+  ansible.builtin.deb822_repository:
+    name: hashicorp
+    types:
+      - deb
+    uris:
+      - https://apt.releases.hashicorp.com
+    suites:
+      - trixie
+    components:
+      - main
+    signed_by: "{{ infra_hashicorp_key_path }}"
+    state: present
+
+- name: Install Kubernetes repository key
+  ansible.builtin.get_url:
+    url: "{{ infra_kubernetes_key_url }}"
+    dest: "{{ infra_kubernetes_key_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure Kubernetes repository
+  ansible.builtin.deb822_repository:
+    name: kubernetes
+    types:
+      - deb
+    uris:
+      - "https://pkgs.k8s.io/core:/stable:/{{ infra_kubernetes_minor }}/deb/"
+    suites:
+      - /
+    signed_by: "{{ infra_kubernetes_key_path }}"
+    state: present
+
+- name: Install Terraform and kubectl
+  ansible.builtin.apt:
+    name:
+      - kubectl
+      - terraform
+    state: present
+    update_cache: true
+
+- name: Create versioned Helm download directory
+  ansible.builtin.file:
+    path: "/tmp/helm-{{ infra_helm_version }}"
+    state: directory
+    mode: "0755"
+
+- name: Download verified Helm archive
+  ansible.builtin.get_url:
+    url: "{{ infra_helm_archive_url }}"
+    dest: "/tmp/helm-{{ infra_helm_version }}/helm.tar.gz"
+    checksum: "sha256:{{ infra_helm_archive_url }}.sha256sum"
+    mode: "0644"
+
+- name: Extract Helm archive
+  ansible.builtin.unarchive:
+    src: "/tmp/helm-{{ infra_helm_version }}/helm.tar.gz"
+    dest: "/tmp/helm-{{ infra_helm_version }}"
+    remote_src: true
+    creates: "/tmp/helm-{{ infra_helm_version }}/linux-amd64/helm"
+
+- name: Install Helm binary
+  ansible.builtin.copy:
+    src: "/tmp/helm-{{ infra_helm_version }}/linux-amd64/helm"
+    dest: /usr/local/bin/helm
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Add operator to Docker group
+  ansible.builtin.user:
+    name: "{{ infra_operator_user }}"
+    groups:
+      - docker
+    append: true
+
+- name: Enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Grant operator passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-infra-operator
+    owner: root
+    group: root
+    mode: "0440"
+    content: |
+      {{ infra_operator_user }} ALL=(ALL:ALL) NOPASSWD: ALL
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Install hardened OpenSSH settings
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/20-infra01-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+      AllowAgentForwarding yes
+      AllowTcpForwarding yes
+      X11Forwarding no
+  notify: Reload OpenSSH
+
+- name: Validate OpenSSH configuration
+  ansible.builtin.command:
+    cmd: /usr/sbin/sshd -t
+  changed_when: false
+
+- name: Pin pve01 management name
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^[0-9.]+\s+pve01\.lab\.nasraldin\.com'
+    line: "192.168.68.13 pve01.lab.nasraldin.com pve01"
+    state: present
+
+- name: Create operator SSH directory
+  ansible.builtin.file:
+    path: "/home/{{ infra_operator_user }}/.ssh"
+    state: directory
+    owner: "{{ infra_operator_user }}"
+    group: "{{ infra_operator_user }}"
+    mode: "0700"
+
+- name: Install operator SSH client configuration
+  ansible.builtin.template:
+    src: infra01-ssh-config.j2
+    dest: "/home/{{ infra_operator_user }}/.ssh/config"
+    owner: "{{ infra_operator_user }}"
+    group: "{{ infra_operator_user }}"
+    mode: "0600"

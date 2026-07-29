@@ -1,0 +1,35 @@
+---
+# DNS LXCs — Technitium (authoritative) + AdGuard (recursive / filtering)
+- name: Configure Technitium DNS (dns-01)
+  hosts: dns_auth
+  gather_facts: true
+  pre_tasks:
+    - name: Require Technitium admin secret
+      ansible.builtin.assert:
+        that:
+          - vault_technitium_admin_password is defined
+          - vault_technitium_admin_password | length >= 16
+          - "'replace-with' not in vault_technitium_admin_password"
+        fail_msg: >-
+          Set vault_technitium_admin_password in secrets.yml and run with -e @secrets.yml.
+      no_log: true
+  roles:
+    - role: guest_common
+    - role: technitium_dns
+
+- name: Configure AdGuard Home (adguard-01)
+  hosts: dns_recursive
+  gather_facts: true
+  pre_tasks:
+    - name: Require AdGuard admin secret
+      ansible.builtin.assert:
+        that:
+          - vault_adguard_admin_password is defined
+          - vault_adguard_admin_password | length >= 16
+          - "'replace-with' not in vault_adguard_admin_password"
+        fail_msg: >-
+          Set vault_adguard_admin_password in secrets.yml and run with -e @secrets.yml.
+      no_log: true
+  roles:
+    - role: guest_common
+    - role: adguard_home

@@ -1,5 +1,6 @@
-# Infisical on infra-01 — local Postgres + Redis.
-# Host port is {{ infisical_http_port }} (NPM owns :80/:443 on docker-01).
+# Infisical on {{ inventory_hostname }} — official Compose shape (backend + Postgres + Redis).
+# Lab optimisations: pinned image, Postgres 16, Redis with AOF + password, tuned shared_buffers.
+# Host port {{ infisical_http_port }} (NPM on docker-01 owns :80/:443).
 
 services:
   backend:
@@ -9,7 +10,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     image: {{ infisical_image }}:{{ infisical_image_tag }}
     pull_policy: always
     env_file: .env
@@ -18,7 +19,6 @@ services:
     environment:
       - NODE_ENV=production
     networks:
-      - proxy
       - infisical
 
   db:
@@ -26,6 +26,18 @@ services:
     container_name: infisical-db
     restart: unless-stopped
     env_file: .env
+    command:
+      - postgres
+      - -c
+      - shared_buffers={{ infisical_postgres_shared_buffers }}
+      - -c
+      - max_connections={{ infisical_postgres_max_connections }}
+      - -c
+      - effective_cache_size={{ infisical_postgres_effective_cache_size }}
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_buffers=16MB
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ infisical_postgres_user }} -d {{ infisical_postgres_db }}"]
       interval: 5s
@@ -40,9 +52,21 @@ services:
     image: {{ infisical_redis_image }}
     container_name: infisical-redis
     restart: unless-stopped
-    env_file: .env
-    environment:
-      - ALLOW_EMPTY_PASSWORD=yes
+    command:
+      - redis-server
+      - --requirepass
+      - {{ infisical_redis_password }}
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - {{ infisical_redis_maxmemory }}
+      - --maxmemory-policy
+      - allkeys-lru
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a {{ infisical_redis_password }} ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     networks:
       - infisical
     volumes:
@@ -56,6 +80,3 @@ volumes:
 
 networks:
   infisical:
-  proxy:
-    external: true
-    name: proxy

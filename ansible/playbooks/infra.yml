@@ -1,26 +1,9 @@
 ---
-- name: Configure infra-01 core stack (DNS, Infisical, AIStor)
-  hosts: infra-01
+# Jumpbox only — no Docker app stacks (those live on docker-01 / infisical-01 / DNS LXCs).
+- name: Configure infra-01 jumpbox
+  hosts: infrastructure
   gather_facts: true
-  pre_tasks:
-    - name: Require non-placeholder DNS admin secrets
-      ansible.builtin.assert:
-        that:
-          - vault_adguard_admin_password is defined
-          - vault_technitium_admin_password is defined
-          - vault_adguard_admin_password | length >= 16
-          - vault_technitium_admin_password | length >= 16
-          - "'replace-with' not in vault_adguard_admin_password"
-          - "'replace-with' not in vault_technitium_admin_password"
-        fail_msg: >-
-          Copy secrets.example.yml to secrets.yml, set both strong passwords,
-          and run with -e @secrets.yml.
-      no_log: true
+  become: true
   roles:
     - role: guest_common
-    - role: docker_host
-    # AdGuard owns LAN :53; Technitium is authoritative on loopback :5300 (same host).
-    - role: technitium_dns
-    - role: adguard_home
-    - role: infisical
-    - role: aistor
+    - role: infra_operator

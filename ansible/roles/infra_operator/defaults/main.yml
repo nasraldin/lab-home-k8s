@@ -1,0 +1,52 @@
+---
+infra_operator_user: nasr
+infra_operator_packages:
+  - ansible
+  - ansible-lint
+  - bash-completion
+  - build-essential
+  - ca-certificates
+  - curl
+  - dnsutils
+  - docker-compose
+  - docker.io
+  - fd-find
+  - fzf
+  - gh
+  - git
+  - gnupg
+  - htop
+  - iperf3
+  - jq
+  - make
+  - mtr-tiny
+  - netcat-openbsd
+  - nmap
+  - pipx
+  - python3-pip
+  - python3-debian
+  - python3-proxmoxer
+  - python3-venv
+  - restic
+  - ripgrep
+  - rsync
+  - shellcheck
+  - tmux
+  - traceroute
+  - tree
+  - unzip
+  - vim
+  - yamllint
+  - yq
+
+infra_hashicorp_key_url: https://apt.releases.hashicorp.com/gpg
+infra_hashicorp_key_path: /etc/apt/keyrings/hashicorp.asc
+
+infra_kubernetes_minor: v1.36
+infra_kubernetes_key_url: >-
+  https://pkgs.k8s.io/core:/stable:/{{ infra_kubernetes_minor }}/deb/Release.key
+infra_kubernetes_key_path: /etc/apt/keyrings/kubernetes.asc
+
+infra_helm_version: v3.18.4
+infra_helm_archive_url: >-
+  https://get.helm.sh/helm-{{ infra_helm_version }}-linux-amd64.tar.gz

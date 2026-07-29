@@ -1,8 +1,8 @@
 ---
 technitium_web_port: 5380
-# Authoritative-only listener when co-located with AdGuard on the same host.
-# AdGuard owns LAN :53 and forwards lab zones here.
-technitium_dns_local_endpoints: "127.0.0.1:5300"
-technitium_dns_port: 5300
+# Dedicated dns-01 LXC: bind authoritative DNS on all interfaces :53.
+# (Legacy co-located mode used 127.0.0.1:5300 so AdGuard could own LAN :53.)
+technitium_dns_local_endpoints: "0.0.0.0:53"
+technitium_dns_port: 53
 lab_short_zone: lab
 # technitium_managed_zones built in inventory/group_vars/all.yml

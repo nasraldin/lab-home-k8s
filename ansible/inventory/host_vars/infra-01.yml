@@ -1,9 +1,4 @@
-# LAN services on infra-01 (AdGuard :53, UIs, Infisical, AIStor)
+# Jumpbox LXC 124 — SSH + operator tools only (no LAN app ports)
+ansible_user: root
 guest_extra_ufw_rules:
-  - { rule: allow, port: "53", proto: udp, from_ip: "192.168.68.0/22", comment: lab-dns-adguard }
-  - { rule: allow, port: "53", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-dns-adguard }
-  - { rule: allow, port: "3000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-adguard-ui }
-  - { rule: allow, port: "5380", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-technitium-ui }
-  - { rule: allow, port: "8090", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-infisical }
-  - { rule: allow, port: "9000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-aistor-s3 }
-  - { rule: allow, port: "9001", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-aistor-console }
+  - { rule: allow, port: "22", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-ssh }

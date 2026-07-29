@@ -2,14 +2,19 @@
 lab_cidr: "192.168.68.0/22"
 lab_zone: "lab.nasraldin.com"
 lab_short_zone: "lab" # Short LAN-only zone (gitlab.lab, grafana.lab, …)
+# Local-only mail domain for Stalwart (info@dev.test, …).
+# Stalwart rejects .lab; use RFC 6761 reserved TLD .test (or a real FQDN).
+lab_mail_zone: "dev.test"
 public_zone: "nasraldin.com"
 gateway_ip: "192.168.68.1"
 pve_ip: "192.168.68.13" # Proxmox hypervisor (not a guest VM)
-adguard_ip: "192.168.68.14"
-technitium_ip: "192.168.68.14"
+adguard_ip: "192.168.68.10"
+technitium_ip: "192.168.68.11"
 
-# Guest LAN addresses (VMID 110–117 VMs, LXC 118–119)
+# Guest LAN addresses (post-restructure 2026-07-30)
 guest_ips:
+  adguard-01: "192.168.68.10"
+  dns-01: "192.168.68.11"
   infra-01: "192.168.68.14"
   gitlab-01: "192.168.68.15"
   runner-01: "192.168.68.16"
@@ -18,9 +23,12 @@ guest_ips:
   k8s-w-02: "192.168.68.19"
   k8s-w-03: "192.168.68.20"
   docker-01: "192.168.68.21"
-  dockhand: "192.168.68.22"
-  portainer: "192.168.68.23"
+  # Dockhand/Portainer publish on docker-01 after cutover (legacy LXC .22/.23 until then)
+  dockhand: "192.168.68.21"
+  portainer: "192.168.68.21"
   ai-01: "192.168.68.24"
+  llm-01: "192.168.68.26"
+  infisical-01: "192.168.68.25"
 
 # Public HTTPS hostnames (Cloudflare proxied CNAME → tunnel)
 public_urls:
@@ -47,7 +55,7 @@ tunnel_origins:
   gitlab: "http://{{ guest_ips['gitlab-01'] }}:80"
   # Harbor is the lab container registry (not GitLab Omnibus :5050).
   registry: "http://{{ cilium_lb_ips.harbor }}:80"
-  dockhand: "http://{{ guest_ips['dockhand'] }}:3000"
+  dockhand: "http://{{ guest_ips['docker-01'] }}:3000"
   argo: "http://{{ cilium_lb_ips.argocd }}:80"
   harbor: "http://{{ cilium_lb_ips.harbor }}:80"
   grafana: "http://{{ cilium_lb_ips.grafana }}:80"
@@ -55,11 +63,11 @@ tunnel_origins:
   longhorn: "http://{{ cilium_lb_ips.longhorn }}:80"
   sonar: "http://{{ cilium_lb_ips.sonarqube }}:80"
   n8n: "http://{{ cilium_lb_ips.n8n }}:80"
-  minio: "http://{{ guest_ips['infra-01'] }}:9001"
-  s3: "http://{{ guest_ips['infra-01'] }}:9000"
+  minio: "http://{{ guest_ips['docker-01'] }}:9001"
+  s3: "http://{{ guest_ips['docker-01'] }}:9000"
   npm: "http://{{ cilium_lb_ips.verdaccio }}:80"
   proxy: "http://{{ guest_ips['docker-01'] }}:81"
-  portainer: "https://{{ guest_ips['portainer'] }}:9443"
+  portainer: "https://{{ guest_ips['docker-01'] }}:9443"
 
 # Hostnames that require Cloudflare Access OTP
 tunnel_access_hostnames:
@@ -81,10 +89,9 @@ cilium_lb_ips:
   verdaccio: "192.168.68.106"
   n8n: "192.168.68.107"
   litellm: "192.168.68.108"
-  open_webui: "192.168.68.109"
   otel: "192.168.68.110"
-  anythingllm: "192.168.68.111"
   sonarqube: "192.168.68.112"
+  openclaw: "192.168.68.113"
 
 
 # Short LAN URLs (*.lab) — HTTP direct to backends; public *.nasraldin.com unchanged (Cloudflare).
@@ -97,23 +104,27 @@ lab_urls:
   grafana: "http://grafana.lab"
   keycloak: "http://id.lab"
   longhorn: "http://longhorn.lab"
-  minio: "http://minio.lab:9001"
+  # HTTP UIs are fronted by Proxy Manager on docker-01:80 (no ports in URLs).
+  minio: "http://minio.lab"
   s3: "http://s3.lab:9000"
   npm: "http://npm.lab"
   proxy: "http://proxy.lab:81"
+  mail: "http://mail.lab"
+  stalwart: "http://mail.lab"
+  webmail: "http://webmail.lab"
+  inbox: "http://inbox.lab"
   portainer: "https://portainer.lab:9443"
   dockhand: "http://dockhand.lab"
-  adguard: "http://adguard.lab:3000"
-  dns: "http://dns.lab:5380"
-  infisical: "http://infisical.lab:8090"
+  adguard: "http://adguard.lab"
+  dns: "http://dns.lab"
+  infisical: "http://infisical.lab"
   ollama: "http://ollama.lab:11434"
   ai: "http://ai.lab:11434"
   kube_api: "https://kube.lab:6443"
   n8n: "http://n8n.lab"
-  librechat: "http://chat.lab:3080"
-  litellm: "http://litellm.lab:4000"
-  open_webui: "http://open-webui.lab"
-  anythingllm: "http://anythingllm.lab:3001"
+  librechat: "http://chat.lab"
+  litellm: "http://litellm.lab"
+  openclaw: "http://openclaw.lab"
   verdaccio: "http://npm.lab"
   sonar: "http://sonar.lab"
 
@@ -121,6 +132,8 @@ lab_urls:
 # Internal lab.nasraldin.com records (Technitium authoritative zone)
 technitium_zone_records:
   - { name: "pve01", value: "{{ pve_ip }}" }
+  - { name: "adguard-01", value: "{{ guest_ips['adguard-01'] }}" }
+  - { name: "dns-01", value: "{{ guest_ips['dns-01'] }}" }
   - { name: "infra-01", value: "{{ guest_ips['infra-01'] }}" }
   - { name: "gitlab-01", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "runner-01", value: "{{ guest_ips['runner-01'] }}" }
@@ -129,16 +142,17 @@ technitium_zone_records:
   - { name: "k8s-w-02", value: "{{ guest_ips['k8s-w-02'] }}" }
   - { name: "k8s-w-03", value: "{{ guest_ips['k8s-w-03'] }}" }
   - { name: "docker-01", value: "{{ guest_ips['docker-01'] }}" }
-  - { name: "dockhand", value: "{{ guest_ips['dockhand'] }}" }
+  - { name: "dockhand", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "portainer", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "infisical-01", value: "{{ guest_ips['infisical-01'] }}" }
   - { name: "kube-api", value: "{{ guest_ips['k8s-cp-01'] }}" }
   - { name: "argo", value: "{{ cilium_lb_ips.argocd }}" }
   - { name: "harbor", value: "{{ cilium_lb_ips.harbor }}" }
   - { name: "grafana", value: "{{ cilium_lb_ips.grafana }}" }
   - { name: "id", value: "{{ cilium_lb_ips.keycloak }}" }
   - { name: "longhorn", value: "{{ cilium_lb_ips.longhorn }}" }
-  - { name: "minio", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "s3", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "portainer", value: "{{ guest_ips['portainer'] }}" }
+  - { name: "minio", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "s3", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "gateway", value: "{{ gateway_ip }}" }
 
 # Short *.lab zone — friendly LAN names
@@ -156,37 +170,51 @@ technitium_short_zone_records:
   - { name: "id", value: "{{ cilium_lb_ips.keycloak }}" }
   - { name: "keycloak", value: "{{ cilium_lb_ips.keycloak }}" }
   - { name: "longhorn", value: "{{ cilium_lb_ips.longhorn }}" }
-  - { name: "minio", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "s3", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "minio", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "s3", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "npm", value: "{{ cilium_lb_ips.verdaccio }}" }
   - { name: "verdaccio", value: "{{ cilium_lb_ips.verdaccio }}" }
   - { name: "proxy", value: "{{ guest_ips['docker-01'] }}" }
-  - { name: "portainer", value: "{{ guest_ips['portainer'] }}" }
-  - { name: "dockhand", value: "{{ guest_ips['dockhand'] }}" }
-  - { name: "docker", value: "{{ guest_ips['dockhand'] }}" }
-  - { name: "adguard", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "dns", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "technitium", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "infisical", value: "{{ guest_ips['infra-01'] }}" }
-  - { name: "ollama", value: "{{ guest_ips['ai-01'] }}" }
-  - { name: "ai", value: "{{ guest_ips['ai-01'] }}" }
+  - { name: "mail", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "stalwart", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "webmail", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "inbox", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "portainer", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "dockhand", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "docker", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "adguard", value: "{{ guest_ips['adguard-01'] }}" }
+  - { name: "dns", value: "{{ guest_ips['dns-01'] }}" }
+  - { name: "technitium", value: "{{ guest_ips['dns-01'] }}" }
+  - { name: "infisical", value: "{{ guest_ips['infisical-01'] }}" }
+  - { name: "ollama", value: "{{ guest_ips['llm-01'] }}" }
+  - { name: "ai", value: "{{ guest_ips['llm-01'] }}" }
   - { name: "n8n", value: "{{ cilium_lb_ips.n8n }}" }
-  - { name: "librechat", value: "{{ cilium_lb_ips.librechat }}" }
-  - { name: "chat", value: "{{ cilium_lb_ips.librechat }}" }
-  - { name: "litellm", value: "{{ cilium_lb_ips.litellm }}" }
-  - { name: "open-webui", value: "{{ cilium_lb_ips.open_webui }}" }
-  - { name: "webui", value: "{{ cilium_lb_ips.open_webui }}" }
-  - { name: "anythingllm", value: "{{ cilium_lb_ips.anythingllm }}" }
+  # AI/chat UIs → Proxy Manager on docker-01 so http://*.lab works without :ports
+  - { name: "librechat", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "chat", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "litellm", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "openclaw", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "sonar", value: "{{ cilium_lb_ips.sonarqube }}" }
   - { name: "sonarqube", value: "{{ cilium_lb_ips.sonarqube }}" }
   - { name: "gateway", value: "{{ gateway_ip }}" }
 
 # Technitium zones managed by ansible/roles/technitium_dns
+# Record fields: name (@ = zone apex), type (A|MX, default A), value (A), exchange+preference (MX)
 technitium_managed_zones:
   - zone: "{{ lab_zone }}"
     records: "{{ technitium_zone_records }}"
   - zone: "{{ lab_short_zone }}"
     records: "{{ technitium_short_zone_records }}"
+  - zone: "{{ lab_mail_zone }}"
+    records: "{{ technitium_mail_zone_records }}"
+
+# A/MX for local mail domain (Stalwart on docker-01; UI still at http://mail.lab)
+technitium_mail_zone_records:
+  - { name: "@", type: A, value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "@", type: MX, exchange: "mail.{{ lab_mail_zone }}", preference: 10 }
+  - { name: "mail", type: A, value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "autoconfig", type: A, value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "autodiscover", type: A, value: "{{ guest_ips['docker-01'] }}" }
 
 # Kubernetes — single control plane (no HAProxy)
 k8s_version: "1.36"
@@ -197,7 +225,9 @@ control_plane_endpoint: "{{ guest_ips['k8s-cp-01'] }}:6443"
 lab_dns: "{{ adguard_ip }}"
 cilium_lb_pool_cidrs:
   - "192.168.68.100-192.168.68.119"
-ansible_user: nasr
+# Do NOT set ansible_user here — it overrides LXC groups that need root
+# (dns-01, adguard-01, infisical-01, infra-01, llm-01). Per-group/host
+# ansible_user lives in inventory/hosts.yml and host_vars/*.yml.
 
 adguard_admin_user: admin
 adguard_admin_password: "{{ vault_adguard_admin_password }}"
@@ -207,7 +237,7 @@ technitium_admin_password: "{{ vault_technitium_admin_password }}"
 # GitLab Omnibus — LAN HTTP primary (*.lab). Public HTTPS is Cloudflare Tunnel → this origin.
 gitlab_external_url: "{{ lab_urls.gitlab }}"
 gitlab_registry_external_url: "http://registry.lab:{{ gitlab_registry_listen_port | default(5050) }}"
-gitlab_object_store_endpoint: "http://{{ guest_ips['infra-01'] }}:9000"
+gitlab_object_store_endpoint: "http://{{ guest_ips['docker-01'] }}:9000"
 
 # Argo CD bootstrap (install-argocd.sh)
 argocd_public_url: "{{ public_urls.argo }}"
@@ -226,11 +256,11 @@ keycloak_public_url: "{{ public_urls.keycloak }}"
 keycloak_hostname: "id.nasraldin.com"
 keycloak_lb_ip: "{{ cilium_lb_ips.keycloak }}"
 
-# AIStor / MinIO (infra-01 — console + S3 API public, GitLab uses LAN :9000)
+# AIStor / MinIO (docker-01 — console + S3 API public, GitLab uses LAN :9000)
 aistor_public_console_url: "{{ public_urls.minio }}"
 aistor_public_s3_url: "{{ public_urls.s3 }}"
 aistor_browser_redirect_url: "{{ public_urls.minio }}"
 aistor_server_url: "{{ public_urls.s3 }}"
 
-# Portainer CT (LXC 119)
+# Portainer on docker-01
 portainer_public_url: "{{ public_urls.portainer }}"

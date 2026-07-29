@@ -143,7 +143,7 @@
     fail_msg: AdGuard login succeeded but no session cookie/token was returned.
   no_log: true
 
-- name: Set AdGuard DNS upstreams (lab zone → Technitium)
+- name: Set AdGuard DNS upstreams (lab zones → Technitium)
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ adguard_web_port }}/control/dns_config"
     method: POST
@@ -152,8 +152,9 @@
       Cookie: "{{ adguard_session_cookie }}"
     body:
       upstream_dns:
-        - "[/{{ lab_short_zone }}/]127.0.0.1:{{ technitium_dns_port | default(5300) }}"
-        - "[/{{ lab_zone }}/]127.0.0.1:{{ technitium_dns_port | default(5300) }}"
+        - "[/{{ lab_short_zone }}/]{{ technitium_ip }}:{{ technitium_dns_port | default(53) }}"
+        - "[/{{ lab_zone }}/]{{ technitium_ip }}:{{ technitium_dns_port | default(53) }}"
+        - "[/{{ lab_mail_zone }}/]{{ technitium_ip }}:{{ technitium_dns_port | default(53) }}"
         - "1.1.1.1"
         - "1.0.0.1"
       bootstrap_dns:

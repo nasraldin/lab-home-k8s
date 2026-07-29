@@ -1,25 +1,23 @@
 ---
-- name: Core infrastructure
-  ansible.builtin.import_playbook: infra.yml
+- name: DNS (AdGuard + Technitium LXCs)
+  ansible.builtin.import_playbook: dns.yml
 
-- name: GitLab platform
-  ansible.builtin.import_playbook: gitlab.yml
+- name: Infisical dedicated LXC
+  ansible.builtin.import_playbook: infisical.yml
 
-- name: Docker utility host
+- name: Docker app host (proxy, mail, tools, Dockhand, Portainer, AIStor)
   ansible.builtin.import_playbook: docker-hosts.yml
 
-- name: Dockhand management
-  ansible.builtin.import_playbook: dockhand.yml
+- name: Jumpbox (after VM→LXC cutover)
+  ansible.builtin.import_playbook: infra.yml
 
-# Register Docker engines in Dockhand, then deploy Hawser agents.
-# Requires Dockhand UI already up (playbook above). Safe to re-run.
-- name: Register Dockhand environments (API)
+- name: Register Dockhand environments (API) on docker-01
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Wait for Dockhand HTTP
+    - name: Wait for Dockhand HTTP on docker-01
       ansible.builtin.uri:
-        url: http://192.168.68.22:3000/
+        url: http://192.168.68.21:3000/
         status_code: [200, 302, 401]
       register: dockhand_http
       retries: 12
@@ -35,11 +33,11 @@
       when: dockhand_http is succeeded
       ignore_errors: true
 
-- name: Dockhand Hawser agents (docker-01 + infra-01)
+- name: Dockhand Hawser agents
   ansible.builtin.import_playbook: dockhand-agents.yml
 
-- name: Portainer management
-  ansible.builtin.import_playbook: portainer.yml
+- name: GitLab platform
+  ansible.builtin.import_playbook: gitlab.yml
 
 - name: Kubernetes cluster
   ansible.builtin.import_playbook: k8s.yml

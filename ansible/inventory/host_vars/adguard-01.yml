@@ -1,0 +1,6 @@
+# AdGuard LXC 121 — root only (no nasr user)
+ansible_user: root
+guest_extra_ufw_rules:
+  - { rule: allow, port: "53", proto: udp, from_ip: "192.168.68.0/22", comment: lab-dns-adguard }
+  - { rule: allow, port: "53", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-dns-adguard }
+  - { rule: allow, port: "3000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-adguard-ui }

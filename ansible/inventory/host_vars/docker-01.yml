@@ -1,8 +1,22 @@
-# Docker app host published ports (NPM / it-tools / mailpit)
+# Docker host after restructure (proxy, mail, AIStor, Dockhand, Portainer, apps)
 guest_extra_ufw_rules:
-  - { rule: allow, port: "80", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-http }
-  - { rule: allow, port: "443", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-https }
-  - { rule: allow, port: "81", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-npm-admin }
+  - { rule: allow, port: "80", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-proxy-http }
+  - { rule: allow, port: "443", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-proxy-https }
+  - { rule: allow, port: "81", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-proxy-admin }
   - { rule: allow, port: "1000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-it-tools }
   - { rule: allow, port: "8025", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-mailpit-ui }
   - { rule: allow, port: "1025", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-mailpit-smtp }
+  - { rule: allow, port: "25", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-smtp }
+  - { rule: allow, port: "587", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-submission }
+  - { rule: allow, port: "465", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-smtps }
+  - { rule: allow, port: "143", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-imap }
+  - { rule: allow, port: "993", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-imaps }
+  - { rule: allow, port: "110", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-pop3 }
+  - { rule: allow, port: "995", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-pop3s }
+  - { rule: allow, port: "4190", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-stalwart-managesieve }
+  - { rule: allow, port: "9000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-aistor-s3 }
+  - { rule: allow, port: "9001", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-aistor-console }
+  - { rule: allow, port: "3000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-dockhand }
+  - { rule: allow, port: "9443", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-portainer }
+  - { rule: allow, port: "8000", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-portainer-edge }
+  - { rule: allow, port: "18789", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-openclaw }

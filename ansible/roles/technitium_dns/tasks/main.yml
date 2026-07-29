@@ -126,46 +126,46 @@
   ansible.builtin.set_fact:
     technitium_zone_names: "{{ technitium_zones.json.response.zones | map(attribute='name') | map('regex_replace', '\\.$', '') | list }}"
 
-- name: Create lab.nasraldin.com zone if missing
-  when: lab_zone not in technitium_zone_names
+- name: Create managed Technitium zones if missing
+  when: item.zone not in technitium_zone_names
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/create?zone={{ lab_zone | urlencode }}&type=Primary"
+    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/create?zone={{ item.zone | urlencode }}&type=Primary"
     method: GET
     headers:
       Authorization: "Bearer {{ technitium_token }}"
     return_content: true
     status_code: [200]
-  register: technitium_zone_create_long
+  loop: "{{ technitium_managed_zones }}"
+  loop_control:
+    label: "{{ item.zone }}"
+  register: technitium_zone_create
   failed_when: >
-    (technitium_zone_create_long.json.status | default('')) != 'ok'
-    and ('exist' not in (technitium_zone_create_long.json.errorMessage | default('') | lower))
+    (technitium_zone_create.json.status | default('')) != 'ok'
+    and ('exist' not in (technitium_zone_create.json.errorMessage | default('') | lower))
   no_log: true
 
-- name: Create short lab zone if missing
-  when: lab_short_zone not in technitium_zone_names
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ technitium_web_port }}/api/zones/create?zone={{ lab_short_zone | urlencode }}&type=Primary"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ technitium_token }}"
-    return_content: true
-    status_code: [200]
-  register: technitium_zone_create_short
-  failed_when: >
-    (technitium_zone_create_short.json.status | default('')) != 'ok'
-    and ('exist' not in (technitium_zone_create_short.json.errorMessage | default('') | lower))
-  no_log: true
-
-- name: Add A records for Technitium zones
+- name: Add records for Technitium zones (A / MX)
   ansible.builtin.uri:
     url: >-
       {{
         'http://127.0.0.1:' ~ (technitium_web_port | string)
         ~ '/api/zones/records/add'
-        ~ '?domain=' ~ item.1.name ~ '.' ~ (item.0.zone | urlencode)
+        ~ '?domain=' ~ (
+            (item.0.zone | urlencode)
+            if (item.1.name | default('@')) in ['@', '']
+            else ((item.1.name ~ '.' ~ item.0.zone) | urlencode)
+          )
         ~ '&zone=' ~ (item.0.zone | urlencode)
-        ~ '&type=A&ipAddress=' ~ item.1.value
+        ~ '&type=' ~ (item.1.type | default('A'))
         ~ '&overwrite=true&ttl=300'
+        ~ (
+            ('&ipAddress=' ~ item.1.value)
+            if (item.1.type | default('A')) == 'A'
+            else (
+              '&exchange=' ~ (item.1.exchange | urlencode)
+              ~ '&preference=' ~ (item.1.preference | default(10) | string)
+            )
+          )
       }}
     method: GET
     headers:
@@ -173,6 +173,8 @@
     return_content: true
     status_code: [200]
   loop: "{{ technitium_managed_zones | subelements('records') }}"
+  loop_control:
+    label: "{{ item.0.zone }}/{{ item.1.name | default('@') }} {{ item.1.type | default('A') }}"
   register: technitium_rec
   failed_when: >
     (technitium_rec.json.status | default('')) != 'ok'
