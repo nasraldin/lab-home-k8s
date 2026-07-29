@@ -122,8 +122,9 @@ vms = {
     startup_order = 8
   }
   # Ollama + gemma4:12b — Radeon 890M passthrough (NPU cannot VFIO).
-  # hugepages require root@pam — do NOT set via Terraform (API token gets HTTP 500).
+  # hugepages require root@pam — Terraform API tokens get HTTP 500 if they write it.
   # After first create: ssh root@pve01 'qm set 120 --hugepages 2'
+  # Keep hugepages = "2" in TF so NUMA/floating match; module lifecycle ignores the write.
   ai-01 = {
     image            = "debian-13"
     tags             = ["ai", "ollama", "gpu", "gemma4"]
@@ -134,7 +135,7 @@ vms = {
     ip               = "192.168.68.24/22"
     startup_order    = 9
     hostpci_mappings = ["ai-igpu"]
-    # hugepages        = "2"  # set with qm as root, not Terraform
+    hugepages        = "2"
   }
 }
 
