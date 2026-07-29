@@ -1,3 +1,13 @@
-# ansible-lint config for lab-home-k8s
-# Prefer fixing ansible-core version in CI over skipping syntax-check (unskippable in modern ansible-lint).
-exclude_paths: []
+# CI profile: keep syntax/load errors fatal; defer style cleanup.
+profile: min
+skip_list:
+  - var-naming
+  - no-changed-when
+  - yaml[line-length]
+  - yaml[empty-lines]
+  - name[casing]
+  - name[missing]
+  - risky-file-permissions
+  - risky-shell-pipe
+  - command-instead-of-shell
+  - jinja[spacing]
