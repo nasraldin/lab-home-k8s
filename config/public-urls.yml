@@ -12,30 +12,39 @@ public_urls:
   harbor: https://harbor.nasraldin.com
   grafana: https://grafana.nasraldin.com
   keycloak: https://id.nasraldin.com
+  longhorn: https://longhorn.nasraldin.com
+  sonar: https://sonar.nasraldin.com
+  n8n: https://n8n.nasraldin.com
   minio: https://minio.nasraldin.com
   s3: https://s3.nasraldin.com
   npm: https://npm.nasraldin.com
   portainer: https://portainer.nasraldin.com
   dockhand: https://docker.nasraldin.com
 
-# Cloudflare Tunnel → LAN origin (see config/cloudflare-tunnel-ingress.example.json)
+# Cloudflare Tunnel → LAN origin (see cloudflare-tunnel/config.env)
 tunnel_origins:
   homelab: https://127.0.0.1:8006
   gitlab: http://192.168.68.15:80
-  registry: http://192.168.68.15:5050
-  dockhand: http://192.168.68.18:3000
+  registry: http://192.168.68.101:80 # Harbor
+  dockhand: http://192.168.68.22:3000
   argo: http://192.168.68.100:80
   harbor: http://192.168.68.101:80
   grafana: http://192.168.68.102:80
   keycloak: http://192.168.68.103:80
+  longhorn: http://192.168.68.104:80
+  sonar: http://192.168.68.112:80
+  n8n: http://192.168.68.107:80
   minio: http://192.168.68.14:9001
   s3: http://192.168.68.14:9000
-  npm: http://192.168.68.17:81
-  portainer: https://192.168.68.19:9443
+  npm: http://192.168.68.106:80 # Verdaccio
+  portainer: https://192.168.68.23:9443
 
 tunnel_access_hostnames:
   - homelab.nasraldin.com
   - docker.nasraldin.com
+  - longhorn.nasraldin.com
+  - portainer.nasraldin.com
+  - npm.nasraldin.com
 
 cilium_lb_ips:
   argocd: 192.168.68.100
@@ -43,33 +52,35 @@ cilium_lb_ips:
   grafana: 192.168.68.102
   keycloak: 192.168.68.103
   longhorn: 192.168.68.104
+  librechat: 192.168.68.105
+  verdaccio: 192.168.68.106
+  n8n: 192.168.68.107
+  litellm: 192.168.68.108
+  open_webui: 192.168.68.109
+  otel: 192.168.68.110
+  anythingllm: 192.168.68.111
+  sonarqube: 192.168.68.112
 
 lab_short_zone: lab
 
 lab_urls:
   proxmox: https://pve.lab:8006
   gitlab: http://gitlab.lab
-  registry: http://registry.lab:5050
+  registry: http://harbor.lab
   argo: http://argo.lab
   harbor: http://harbor.lab
   grafana: http://grafana.lab
   keycloak: http://id.lab
   longhorn: http://longhorn.lab
+  sonar: http://sonar.lab
   minio: http://minio.lab:9001
   s3: http://s3.lab:9000
-  npm: http://npm.lab:81
+  npm: http://npm.lab
   portainer: https://portainer.lab:9443
   dockhand: http://dockhand.lab
-  adguard: http://adguard.lab:3000
-  dns: http://dns.lab:5380
-  infisical: http://infisical.lab:8090
+  n8n: http://n8n.lab
+  librechat: http://chat.lab:3080
+  litellm: http://litellm.lab:4000
+  open_webui: http://open-webui.lab
+  anythingllm: http://anythingllm.lab:3001
   kube_api: https://kube.lab:6443
-
-internal_urls:
-  argo: https://argo.lab.nasraldin.com
-  harbor: https://harbor.lab.nasraldin.com
-  grafana: https://grafana.lab.nasraldin.com
-  keycloak: https://id.lab.nasraldin.com
-  minio: https://minio.lab.nasraldin.com
-  s3: https://s3.lab.nasraldin.com
-  kube_api: https://kube-api.lab.nasraldin.com:6443

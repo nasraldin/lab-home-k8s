@@ -29,7 +29,7 @@ DEFAULT_TOKEN_FILE = Path(
     )
 )
 
-# Lab Docker engines (Podman intentionally omitted — not a Dockhand/Hawser target).
+# Lab Docker engines for lab-home-k8s (no database/monitoring/sonar/elastic VMs).
 LAB_ENVIRONMENTS: list[dict[str, Any]] = [
     {
         "name": "dockhand-local",
@@ -46,32 +46,11 @@ LAB_ENVIRONMENTS: list[dict[str, Any]] = [
         "agent_name": "docker-01",
     },
     {
-        "name": "database-01",
+        "name": "infra-01",
         "connectionType": "hawser-edge",
-        "labels": ["lab", "database"],
-        "ansible_host": "database-01",
-        "agent_name": "database-01",
-    },
-    {
-        "name": "monitoring-01",
-        "connectionType": "hawser-edge",
-        "labels": ["lab", "monitoring"],
-        "ansible_host": "monitoring-01",
-        "agent_name": "monitoring-01",
-    },
-    {
-        "name": "sonarqube-01",
-        "connectionType": "hawser-edge",
-        "labels": ["lab", "sonarqube"],
-        "ansible_host": "sonarqube-01",
-        "agent_name": "sonarqube-01",
-    },
-    {
-        "name": "elastic-01",
-        "connectionType": "hawser-edge",
-        "labels": ["lab", "elastic"],
-        "ansible_host": "elastic-01",
-        "agent_name": "elastic-01",
+        "labels": ["lab", "infra"],
+        "ansible_host": "infra-01",
+        "agent_name": "infra-01",
     },
 ]
 

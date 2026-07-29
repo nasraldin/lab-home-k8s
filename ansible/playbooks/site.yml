@@ -11,6 +11,33 @@
 - name: Dockhand management
   ansible.builtin.import_playbook: dockhand.yml
 
+# Register Docker engines in Dockhand, then deploy Hawser agents.
+# Requires Dockhand UI already up (playbook above). Safe to re-run.
+- name: Register Dockhand environments (API)
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Wait for Dockhand HTTP
+      ansible.builtin.uri:
+        url: http://192.168.68.22:3000/
+        status_code: [200, 302, 401]
+      register: dockhand_http
+      retries: 12
+      delay: 5
+      until: dockhand_http is succeeded
+      ignore_errors: true
+
+    - name: Register environments + mint Hawser tokens
+      ansible.builtin.command:
+        cmd: "{{ playbook_dir }}/../scripts/dockhand-register-environments.py"
+      register: dockhand_reg
+      changed_when: "'wrote' in (dockhand_reg.stdout | default('')) or 'created' in (dockhand_reg.stdout | default(''))"
+      when: dockhand_http is succeeded
+      ignore_errors: true
+
+- name: Dockhand Hawser agents (docker-01 + infra-01)
+  ansible.builtin.import_playbook: dockhand-agents.yml
+
 - name: Portainer management
   ansible.builtin.import_playbook: portainer.yml
 

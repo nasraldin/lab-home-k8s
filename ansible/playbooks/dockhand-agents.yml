@@ -10,6 +10,17 @@
   vars:
     dockhand_hawser_tokens_file: "{{ playbook_dir }}/../files/dockhand-hawser-tokens.json"
   pre_tasks:
+    - name: Check Hawser tokens file exists
+      ansible.builtin.stat:
+        path: "{{ dockhand_hawser_tokens_file }}"
+      register: hawser_tokens_stat
+      delegate_to: localhost
+      become: false
+
+    - name: Skip host when tokens file missing
+      ansible.builtin.meta: end_host
+      when: not hawser_tokens_stat.stat.exists
+
     - name: Load Hawser tokens file
       ansible.builtin.slurp:
         src: "{{ dockhand_hawser_tokens_file }}"
@@ -22,9 +33,13 @@
         hawser_bundle: "{{ tokens_slurp.content | b64decode | from_json }}"
         hawser_agent: "{{ (tokens_slurp.content | b64decode | from_json).agents[inventory_hostname] | default({}) }}"
 
+    - name: Skip host without a token entry
+      ansible.builtin.meta: end_host
+      when: hawser_agent.token is not defined or hawser_agent.token | length == 0
+
     - name: Set token fields
       ansible.builtin.set_fact:
-        hawser_token: "{{ hawser_agent.token | default('') }}"
+        hawser_token: "{{ hawser_agent.token }}"
         hawser_agent_name: "{{ hawser_agent.agent_name | default(inventory_hostname) }}"
         hawser_dockhand_server_url: "{{ hawser_bundle.dockhand_server_url }}"
   roles:

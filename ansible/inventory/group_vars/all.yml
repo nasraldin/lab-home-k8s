@@ -31,6 +31,9 @@ public_urls:
   harbor: "https://harbor.nasraldin.com"
   grafana: "https://grafana.nasraldin.com"
   keycloak: "https://id.nasraldin.com"
+  longhorn: "https://longhorn.nasraldin.com"
+  sonar: "https://sonar.nasraldin.com"
+  n8n: "https://n8n.nasraldin.com"
   minio: "https://minio.nasraldin.com"
   s3: "https://s3.nasraldin.com"
   npm: "https://npm.nasraldin.com"
@@ -42,28 +45,35 @@ public_urls:
 tunnel_origins:
   homelab: "https://127.0.0.1:8006"
   gitlab: "http://{{ guest_ips['gitlab-01'] }}:80"
-  registry: "http://{{ guest_ips['gitlab-01'] }}:5050"
+  # Harbor is the lab container registry (not GitLab Omnibus :5050).
+  registry: "http://{{ cilium_lb_ips.harbor }}:80"
   dockhand: "http://{{ guest_ips['dockhand'] }}:3000"
   argo: "http://{{ cilium_lb_ips.argocd }}:80"
   harbor: "http://{{ cilium_lb_ips.harbor }}:80"
   grafana: "http://{{ cilium_lb_ips.grafana }}:80"
   keycloak: "http://{{ cilium_lb_ips.keycloak }}:80"
+  longhorn: "http://{{ cilium_lb_ips.longhorn }}:80"
+  sonar: "http://{{ cilium_lb_ips.sonarqube }}:80"
+  n8n: "http://{{ cilium_lb_ips.n8n }}:80"
   minio: "http://{{ guest_ips['infra-01'] }}:9001"
   s3: "http://{{ guest_ips['infra-01'] }}:9000"
   npm: "http://{{ cilium_lb_ips.verdaccio }}:80"
   proxy: "http://{{ guest_ips['docker-01'] }}:81"
   portainer: "https://{{ guest_ips['portainer'] }}:9443"
 
-# Hostnames that require Cloudflare Access OTP (same policy as homelab / docker)
+# Hostnames that require Cloudflare Access OTP
 tunnel_access_hostnames:
   - homelab.nasraldin.com
   - docker.nasraldin.com
+  - longhorn.nasraldin.com
+  - portainer.nasraldin.com
+  - npm.nasraldin.com
 
 # Reserved Cilium LoadBalancer IPs (lab-pool 192.168.68.100–119)
 # Keep in sync with lab-home-gitops Helm values / lbipam annotations.
 cilium_lb_ips:
   argocd: "192.168.68.100"
-  harbor: "192.168.68.101" # conflict risk if AnythingLLM also requests .101
+  harbor: "192.168.68.101"
   grafana: "192.168.68.102"
   keycloak: "192.168.68.103"
   longhorn: "192.168.68.104"
@@ -74,13 +84,14 @@ cilium_lb_ips:
   open_webui: "192.168.68.109"
   otel: "192.168.68.110"
   anythingllm: "192.168.68.111"
+  sonarqube: "192.168.68.112"
 
 
 # Short LAN URLs (*.lab) — HTTP direct to backends; public *.nasraldin.com unchanged (Cloudflare).
 lab_urls:
   proxmox: "https://pve.lab:8006"
   gitlab: "http://gitlab.lab"
-  registry: "http://registry.lab:5050"
+  registry: "http://harbor.lab"
   argo: "http://argo.lab"
   harbor: "http://harbor.lab"
   grafana: "http://grafana.lab"
@@ -99,11 +110,12 @@ lab_urls:
   ai: "http://ai.lab:11434"
   kube_api: "https://kube.lab:6443"
   n8n: "http://n8n.lab"
-  librechat: "http://librechat.lab:3080"
+  librechat: "http://chat.lab:3080"
   litellm: "http://litellm.lab:4000"
   open_webui: "http://open-webui.lab"
   anythingllm: "http://anythingllm.lab:3001"
-  verdaccio: "http://verdaccio.lab"
+  verdaccio: "http://npm.lab"
+  sonar: "http://sonar.lab"
 
 
 # Internal lab.nasraldin.com records (Technitium authoritative zone)
@@ -165,6 +177,8 @@ technitium_short_zone_records:
   - { name: "open-webui", value: "{{ cilium_lb_ips.open_webui }}" }
   - { name: "webui", value: "{{ cilium_lb_ips.open_webui }}" }
   - { name: "anythingllm", value: "{{ cilium_lb_ips.anythingllm }}" }
+  - { name: "sonar", value: "{{ cilium_lb_ips.sonarqube }}" }
+  - { name: "sonarqube", value: "{{ cilium_lb_ips.sonarqube }}" }
   - { name: "gateway", value: "{{ gateway_ip }}" }
 
 # Technitium zones managed by ansible/roles/technitium_dns
