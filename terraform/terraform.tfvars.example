@@ -122,7 +122,8 @@ vms = {
     startup_order = 8
   }
   # Ollama + gemma4:12b — Radeon 890M passthrough (NPU cannot VFIO).
-  # hugepages "2" = 2 MiB (prefer over "1024" for this lab).
+  # hugepages require root@pam — do NOT set via Terraform (API token gets HTTP 500).
+  # After first create: ssh root@pve01 'qm set 120 --hugepages 2'
   ai-01 = {
     image            = "debian-13"
     tags             = ["ai", "ollama", "gpu", "gemma4"]
@@ -133,7 +134,7 @@ vms = {
     ip               = "192.168.68.24/22"
     startup_order    = 9
     hostpci_mappings = ["ai-igpu"]
-    hugepages        = "2"
+    # hugepages        = "2"  # set with qm as root, not Terraform
   }
 }
 

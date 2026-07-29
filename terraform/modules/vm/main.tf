@@ -44,9 +44,21 @@ resource "proxmox_virtual_environment_vm" "this" {
   memory {
     dedicated = var.memory
     # Ballooning conflicts with hugepages — force fixed RAM when hugepages are set.
-    floating       = var.hugepages != null ? 0 : var.memory
+    floating = var.hugepages != null ? 0 : var.memory
+    # hugepages / keep_hugepages require root@pam on Proxmox. Terraform API tokens
+    # (terraform@pve) cannot set them — apply via: qm set <vmid> --hugepages 2
+    # and leave managed outside TF (see lifecycle ignore_changes below).
     hugepages      = var.hugepages
-    keep_hugepages = var.hugepages != null ? var.keep_hugepages : false
+    keep_hugepages = var.hugepages != null ? var.keep_hugepages : null
+  }
+
+  # Non-root API tokens get HTTP 500 "only root can set 'hugepages' config" on
+  # any memory update that touches these fields. Manage hugepages out-of-band.
+  lifecycle {
+    ignore_changes = [
+      memory[0].hugepages,
+      memory[0].keep_hugepages,
+    ]
   }
 
   efi_disk {
