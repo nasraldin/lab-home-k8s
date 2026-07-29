@@ -105,3 +105,27 @@ projects:
           path: /librechat,
           optional: true,
         }
+      - {
+          key: LIBRECHAT_LITELLM_API_KEY,
+          from: vault_litellm_master_key,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LITELLM_MASTER_KEY,
+          from: vault_litellm_master_key,
+          path: /litellm,
+          optional: true,
+        }
+      - {
+          key: LITELLM_POSTGRES_PASSWORD,
+          from: vault_litellm_postgres_password,
+          path: /litellm,
+          optional: true,
+        }
+      - {
+          key: LITELLM_POSTGRES_USER_PASSWORD,
+          from: vault_litellm_postgres_user_password,
+          path: /litellm,
+          optional: true,
+        }

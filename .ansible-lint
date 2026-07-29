@@ -1,0 +1,4 @@
+# ansible-lint config for lab-home-k8s
+# deb822_repository needs ansible-core >= 2.15; older lint images fail syntax-check.
+skip_list:
+  - syntax-check[specific]
