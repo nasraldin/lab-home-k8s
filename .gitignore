@@ -6,8 +6,10 @@ terraform/terraform.tfvars
 *.tfstate
 *.tfstate.*
 tfplan
+tfplan-*
 crash.log
 secrets.yml
+.cutover*
 CREDENTIALS.md
 *.pem
 *.key
@@ -19,6 +21,7 @@ __pycache__/
 
 ansible/.cache/
 ansible/files/dockhand-hawser-tokens.json
+ansible/files/stalwart-bootstrap-admin.json
 ansible/files/aistor/*
 !ansible/files/aistor/README.md
 *.bak
