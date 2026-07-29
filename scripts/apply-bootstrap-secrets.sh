@@ -18,6 +18,9 @@ need_cmd kubectl
 [[ -f "${SECRETS_FILE}" ]] || die "missing ${SECRETS_FILE}"
 
 # Export selected vault_* keys into the environment (values may contain special chars).
+# Pre-declare so shellcheck knows these are assigned via eval.
+declare vault_grafana_admin_password vault_harbor_admin_password vault_keycloak_admin_password
+declare vault_keycloak_db_password vault_sonarqube_db_password vault_postgres_password
 eval "$(
   SECRETS_FILE="${SECRETS_FILE}" python3 - <<'PY'
 import os, shlex, yaml

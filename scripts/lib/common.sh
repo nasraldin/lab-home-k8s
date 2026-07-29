@@ -2,7 +2,6 @@
 # Shared helpers for k8s-lab bootstrap scripts.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/config}"
 
 need_cmd() {

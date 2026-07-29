@@ -23,7 +23,7 @@ kubectl -n storage get nodes.longhorn.io -o name | while read -r node_ref; do
 
   mount_path=""
   for cand in "${MOUNT_CANDIDATES[@]}"; do
-    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "nasr@${ip}" \
+    if ssh -n -o StrictHostKeyChecking=no -o ConnectTimeout=8 "nasr@${ip}" \
       "findmnt -n ${cand} >/dev/null 2>&1 && df -BG ${cand} | awk 'NR==2{gsub(/G/,\"\",\$2); if(\$2+0>=40) exit 0; exit 1}'"; then
       mount_path="$cand"
       break
@@ -36,7 +36,7 @@ kubectl -n storage get nodes.longhorn.io -o name | while read -r node_ref; do
   echo "  using $mount_path"
 
   # Ensure Longhorn can write
-  ssh -o StrictHostKeyChecking=no "nasr@${ip}" \
+  ssh -n -o StrictHostKeyChecking=no "nasr@${ip}" \
     "sudo mkdir -p ${mount_path}/replicas && sudo chmod 755 ${mount_path}"
 
   python3 - "$node" "$mount_path" <<'PY'
