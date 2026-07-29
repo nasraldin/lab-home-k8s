@@ -1,0 +1,282 @@
+---
+- name: Require Stalwart secrets
+  ansible.builtin.assert:
+    that:
+      - vault_stalwart_recovery_password is defined
+      - vault_stalwart_recovery_password | length >= 16
+      - "'replace-with' not in vault_stalwart_recovery_password"
+      - vault_stalwart_admin_password is defined
+      - vault_stalwart_admin_password | length >= 12
+      - "'replace-with' not in vault_stalwart_admin_password"
+      - vault_stalwart_mailbox_password is defined
+      - vault_stalwart_mailbox_password | length >= 12
+      - "'replace-with' not in vault_stalwart_mailbox_password"
+      - vault_proxy_admin_email is defined
+      - vault_proxy_admin_password is defined
+      - >-
+          not (stalwart_webmail_enabled | bool)
+          or (
+            vault_bulwark_session_secret is defined
+            and (vault_bulwark_session_secret | length >= 24)
+            and ('replace-with' not in vault_bulwark_session_secret)
+          )
+    fail_msg: >-
+      Set vault_stalwart_recovery_password, vault_stalwart_admin_password,
+      vault_stalwart_mailbox_password, vault_proxy_admin_*, and
+      vault_bulwark_session_secret (when webmail enabled) in secrets.yml.
+  no_log: true
+
+- name: Ensure Docker proxy network exists
+  ansible.builtin.command:
+    cmd: docker network inspect proxy
+  register: stalwart_proxy_net
+  changed_when: false
+  failed_when: false
+
+- name: Create Docker proxy network
+  ansible.builtin.command:
+    cmd: docker network create proxy
+  when: stalwart_proxy_net.rc != 0
+
+- name: Check Stalwart Docker volumes
+  ansible.builtin.command:
+    cmd: docker volume inspect {{ item }}
+  loop:
+    - stalwart_etc
+    - stalwart_data
+  register: stalwart_vol_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Create missing Stalwart Docker volumes
+  ansible.builtin.command:
+    cmd: docker volume create {{ item.item }}
+  loop: "{{ stalwart_vol_inspect.results }}"
+  when: item.rc != 0
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Create Stalwart compose directory
+  ansible.builtin.file:
+    path: "{{ stalwart_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Resolve NPM container IP on proxy network (Bulwark hairpin)
+  ansible.builtin.shell: |
+    python3 - <<'PY'
+    import json, subprocess, sys
+    raw = subprocess.check_output(
+        ["docker", "inspect", "{{ stalwart_proxy_docker_container }}"],
+        text=True,
+    )
+    nets = json.loads(raw)[0]["NetworkSettings"]["Networks"]
+    ip = (nets.get("{{ stalwart_proxy_docker_network }}") or {}).get("IPAddress") or ""
+    if not ip:
+        sys.exit(1)
+    print(ip)
+    PY
+  register: stalwart_npm_ip_lookup
+  changed_when: false
+  failed_when: false
+  when: stalwart_webmail_enabled | bool
+
+- name: Set Bulwark extra_hosts IP fact
+  ansible.builtin.set_fact:
+    stalwart_npm_proxy_ip: "{{ stalwart_npm_ip_lookup.stdout | trim }}"
+  when:
+    - stalwart_webmail_enabled | bool
+    - stalwart_npm_ip_lookup.rc | default(1) == 0
+    - (stalwart_npm_ip_lookup.stdout | default('') | trim | length) > 0
+
+- name: Deploy Stalwart compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ stalwart_compose_dir }}/compose.yaml"
+    mode: "0640"
+  no_log: true
+
+- name: Persist Stalwart ops note
+  ansible.builtin.copy:
+    dest: "{{ stalwart_compose_dir }}/README.ops.md"
+    mode: "0644"
+    content: |
+      # Stalwart ({{ inventory_hostname }})
+
+      - Docs: https://stalw.art/docs/install/platform/docker/
+      - Admin UI: {{ stalwart_public_url }}/admin
+      - Webmail (Bulwark): http://webmail.lab  (login with full address @{{ stalwart_mail_domain }})
+      - Domain: {{ stalwart_mail_domain }}
+      - Seed locals: {{ stalwart_seed_mailboxes | join(', ') }} (@{{ stalwart_mail_domain }})
+      - Hostname: {{ stalwart_hostname }}
+      - Proxy Manager: {{ stalwart_proxy_domains | join(', ') }} → {{ stalwart_container_name }}:{{ stalwart_upstream_port }}
+      - Webmail proxy: {{ stalwart_webmail_proxy_domains | join(', ') }} → {{ stalwart_webmail_container_name }}:{{ stalwart_webmail_port }}
+      - JMAP same-origin: NPM rewrites /api/config jmapServerUrl → $scheme://$host (CSP)
+      - Bootstrap is automated by bootstrap_lab_mail.py (no wizard).
+      - Creds file: {{ stalwart_creds_file }}
+
+- name: Install NPM route helper
+  ansible.builtin.copy:
+    src: ensure_npm_proxy_host.py
+    dest: "{{ stalwart_compose_dir }}/ensure_npm_proxy_host.py"
+    mode: "0755"
+
+- name: Install Stalwart bootstrap script
+  ansible.builtin.copy:
+    src: bootstrap_lab_mail.py
+    dest: "{{ stalwart_bootstrap_script }}"
+    mode: "0755"
+
+- name: Pull Stalwart image
+  ansible.builtin.command:
+    cmd: docker compose -f {{ stalwart_compose_dir }}/compose.yaml pull
+  args:
+    chdir: "{{ stalwart_compose_dir }}"
+  register: stalwart_pull
+  retries: 5
+  delay: 15
+  until: stalwart_pull.rc == 0
+  changed_when: false
+
+- name: Start Stalwart
+  ansible.builtin.command:
+    cmd: docker compose -f {{ stalwart_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ stalwart_compose_dir }}"
+  register: stalwart_up
+  retries: 5
+  delay: 15
+  until: stalwart_up.rc == 0
+  changed_when: >-
+    'Started' in stalwart_up.stderr or 'Created' in stalwart_up.stderr
+    or 'Running' in stalwart_up.stderr or 'Recreated' in stalwart_up.stderr
+
+- name: Wait for Stalwart HTTP
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stalwart_upstream_port }}/"
+    status_code: [200, 301, 302, 401, 403]
+  register: stalwart_http
+  retries: 30
+  delay: 2
+  until: stalwart_http is succeeded
+
+- name: Ensure Proxy Manager routes mail UI → Stalwart
+  ansible.builtin.command:
+    cmd: python3 {{ stalwart_compose_dir }}/ensure_npm_proxy_host.py
+  environment:
+    NPM_URL: "{{ stalwart_proxy_manager_url }}"
+    NPM_EMAIL: "{{ stalwart_proxy_admin_email }}"
+    NPM_PASSWORD: "{{ stalwart_proxy_admin_password }}"
+    DOMAINS: "{{ stalwart_proxy_domains | to_json }}"
+    FORWARD_HOST: "{{ stalwart_container_name }}"
+    FORWARD_PORT: "{{ stalwart_upstream_port | string }}"
+    ADVANCED_CONFIG: |
+      # Optional CORS if a client still calls mail.lab from webmail.lab
+      set $cors_origin "";
+      if ($http_origin ~* "^https?://(webmail|inbox)\.lab$") {
+          set $cors_origin $http_origin;
+      }
+      if ($request_method = OPTIONS) {
+          add_header Access-Control-Allow-Origin $cors_origin always;
+          add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD" always;
+          add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, X-Requested-With" always;
+          add_header Access-Control-Max-Age 86400 always;
+          add_header Content-Length 0;
+          add_header Content-Type text/plain;
+          return 204;
+      }
+      add_header Access-Control-Allow-Origin $cors_origin always;
+      add_header Access-Control-Allow-Credentials true always;
+      add_header Vary Origin always;
+  register: stalwart_npm_route
+  changed_when: >-
+    'created' in stalwart_npm_route.stdout or 'updated' in stalwart_npm_route.stdout
+  no_log: true
+
+- name: Bootstrap Stalwart + seed mailboxes (no wizard)
+  ansible.builtin.command:
+    cmd: python3 {{ stalwart_bootstrap_script }}
+  environment:
+    STALWART_JMAP_URL: "http://127.0.0.1:{{ stalwart_upstream_port }}/jmap/"
+    STALWART_RECOVERY_USER: "{{ stalwart_recovery_user }}"
+    STALWART_RECOVERY_PASSWORD: "{{ stalwart_recovery_password }}"
+    STALWART_ADMIN_EMAIL: "{{ stalwart_admin_email }}"
+    STALWART_ADMIN_PASSWORD: "{{ stalwart_admin_password }}"
+    STALWART_HOSTNAME: "{{ stalwart_hostname }}"
+    STALWART_DOMAIN: "{{ stalwart_mail_domain }}"
+    STALWART_SEED_MAILBOXES: "{{ stalwart_seed_mailboxes | to_json }}"
+    STALWART_MAILBOX_PASSWORD: "{{ stalwart_mailbox_password }}"
+    STALWART_COMPOSE_DIR: "{{ stalwart_compose_dir }}"
+    STALWART_CREDS_FILE: "{{ stalwart_creds_file }}"
+  register: stalwart_bootstrap
+  changed_when: >-
+    'bootstrapped' in stalwart_bootstrap.stdout
+    or 'created mailbox' in stalwart_bootstrap.stdout
+    or 'admin password updated' in stalwart_bootstrap.stdout
+  no_log: true
+
+- name: Wait for Bulwark webmail HTTP
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ stalwart_webmail_host_port }}/api/health"
+    status_code: [200]
+  register: bulwark_http
+  retries: 30
+  delay: 2
+  until: bulwark_http is succeeded
+  when: stalwart_webmail_enabled | bool
+
+- name: Build Bulwark /api/config same-origin rewrite snippet
+  ansible.builtin.set_fact:
+    stalwart_webmail_config_rewrite: |
+      proxy_set_header Accept-Encoding "";
+      sub_filter_types application/json;
+      sub_filter_once on;
+      sub_filter '"jmapServerUrl":"{{ stalwart_webmail_jmap_url }}"' '"jmapServerUrl":"$scheme://$host"';
+  when: stalwart_webmail_enabled | bool
+
+- name: Ensure Proxy Manager routes webmail → Bulwark (+ JMAP same-origin)
+  ansible.builtin.command:
+    cmd: python3 {{ stalwart_compose_dir }}/ensure_npm_proxy_host.py
+  environment:
+    NPM_URL: "{{ stalwart_proxy_manager_url }}"
+    NPM_EMAIL: "{{ stalwart_proxy_admin_email }}"
+    NPM_PASSWORD: "{{ stalwart_proxy_admin_password }}"
+    DOMAINS: "{{ stalwart_webmail_proxy_domains | to_json }}"
+    FORWARD_HOST: "{{ stalwart_webmail_container_name }}"
+    FORWARD_PORT: "{{ stalwart_webmail_port | string }}"
+    # Bulwark CSP is connect-src 'self' https: — absolute http://webmail.lab is blocked
+    # when the page is served from inbox.lab (or any other origin). Rewrite the
+    # browser-facing /api/config jmapServerUrl to the request host so discovery
+    # and session URL rewriting stay same-origin under 'self'. Keep compose
+    # JMAP_SERVER_URL as the canonical env value (env-managed + hairpin).
+    LOCATIONS: >-
+      {{
+        [
+          {
+            'path': '/.well-known/jmap',
+            'forward_scheme': 'http',
+            'forward_host': stalwart_container_name,
+            'forward_port': stalwart_upstream_port,
+            'advanced_config': ''
+          },
+          {
+            'path': '/jmap',
+            'forward_scheme': 'http',
+            'forward_host': stalwart_container_name,
+            'forward_port': stalwart_upstream_port,
+            'advanced_config': ''
+          },
+          {
+            'path': '/api/config',
+            'forward_scheme': 'http',
+            'forward_host': stalwart_webmail_container_name,
+            'forward_port': stalwart_webmail_port,
+            'advanced_config': stalwart_webmail_config_rewrite
+          }
+        ] | to_json
+      }}
+  register: bulwark_npm_route
+  changed_when: >-
+    'created' in bulwark_npm_route.stdout or 'updated' in bulwark_npm_route.stdout
+  when: stalwart_webmail_enabled | bool
+  no_log: true

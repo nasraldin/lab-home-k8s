@@ -1,0 +1,72 @@
+---
+- name: Require Proxy Manager initial admin credentials
+  ansible.builtin.assert:
+    that:
+      - (vault_proxy_admin_email is defined) or (vault_npm_admin_email is defined)
+      - proxy_initial_admin_email | length > 3
+      - "'@' in proxy_initial_admin_email"
+      - (vault_proxy_admin_password is defined) or (vault_npm_admin_password is defined)
+      - proxy_initial_admin_password | length >= 12
+    fail_msg: >-
+      Set vault_proxy_admin_email and vault_proxy_admin_password in secrets.yml
+      (Nginx Proxy Manager Auto Initial User Creation).
+  no_log: true
+
+- name: Ensure Docker proxy network exists
+  ansible.builtin.command:
+    cmd: docker network inspect proxy
+  register: proxy_net
+  changed_when: false
+  failed_when: false
+
+- name: Create Docker proxy network
+  ansible.builtin.command:
+    cmd: docker network create proxy
+  when: proxy_net.rc != 0
+
+- name: Create Proxy Manager directory
+  ansible.builtin.file:
+    path: "{{ proxy_compose_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Deploy Proxy Manager compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ proxy_compose_dir }}/compose.yaml"
+    mode: "0640"
+  no_log: true
+
+- name: Pull Proxy Manager images (retry on registry timeouts)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ proxy_compose_dir }}/compose.yaml pull
+  args:
+    chdir: "{{ proxy_compose_dir }}"
+  register: proxy_pull
+  retries: 5
+  delay: 15
+  until: proxy_pull.rc == 0
+  changed_when: false
+
+- name: Start Proxy Manager
+  ansible.builtin.command:
+    cmd: docker compose -f {{ proxy_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ proxy_compose_dir }}"
+  register: proxy_up
+  retries: 5
+  delay: 15
+  until: proxy_up.rc == 0
+  changed_when: >-
+    'Started' in proxy_up.stderr or 'Created' in proxy_up.stderr
+    or 'Running' in proxy_up.stderr or 'Recreated' in proxy_up.stderr
+
+- name: Remove legacy /opt/npm compose dir when unused
+  ansible.builtin.file:
+    path: /opt/npm
+    state: absent
+  when: proxy_compose_dir != '/opt/npm'
+
+- name: Ensure lab UI proxy routes
+  ansible.builtin.include_tasks: routes.yml
+

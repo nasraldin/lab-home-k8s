@@ -1,0 +1,58 @@
+---
+proxy_compose_dir: /opt/proxy
+proxy_image: "jc21/nginx-proxy-manager:2.12.3"
+# Set via secrets.yml — Auto Initial User Creation
+# https://nginxproxymanager.com/advanced-config/#auto-initial-user-creation
+# Prefer vault_proxy_*; vault_npm_* kept as fallback during rename.
+proxy_initial_admin_email: "{{ vault_proxy_admin_email | default(vault_npm_admin_email) }}"
+proxy_initial_admin_password: "{{ vault_proxy_admin_password | default(vault_npm_admin_password) }}"
+
+proxy_manager_url: "http://127.0.0.1:81"
+
+# HTTP UIs published as http://name.lab (port 80 via this proxy). DNS A → docker-01.
+proxy_lab_hosts:
+  - domains: ["chat.lab", "librechat.lab"]
+    forward_host: "{{ cilium_lb_ips.librechat }}"
+    forward_port: 3080
+  - domains: ["litellm.lab"]
+    forward_host: "{{ cilium_lb_ips.litellm }}"
+    forward_port: 4000
+  # OpenClaw: WebSocket upgrade on; Control UI auth via official #token= fragment
+  # bootstrap (https://docs.openclaw.ai/web/dashboard). Token from vault only —
+  # never commit the rendered advanced_config.
+  - domains: ["openclaw.lab"]
+    forward_host: "{{ cilium_lb_ips.openclaw }}"
+    forward_port: 18789
+    advanced_config: |
+      # Official dashboard token bootstrap (URL fragment; not sent to upstream).
+      # Bare / → tiny boot page → /#token=…; Control UI stores token in sessionStorage and strips the hash.
+      if ($request_uri = "/") {
+        return 302 /__oc_boot;
+      }
+      location = /__oc_boot {
+        default_type text/html;
+        charset utf-8;
+        return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><title>OpenClaw</title><script>location.replace("/#token={{ vault_openclaw_gateway_token }}");</script></head><body>Connecting…</body></html>';
+      }
+  - domains: ["webmail.lab", "inbox.lab"]
+    forward_host: "bulwark"
+    forward_port: 3000
+  - domains: ["adguard.lab"]
+    forward_host: "{{ guest_ips['adguard-01'] }}"
+    forward_port: 3000
+  - domains: ["dns.lab", "technitium.lab"]
+    forward_host: "{{ guest_ips['dns-01'] }}"
+    forward_port: 5380
+  - domains: ["infisical.lab"]
+    forward_host: "{{ guest_ips['infisical-01'] }}"
+    forward_port: 8090
+  - domains: ["minio.lab"]
+    forward_host: "127.0.0.1"
+    forward_port: 9001
+  - domains: ["dockhand.lab", "docker.lab"]
+    forward_host: "127.0.0.1"
+    forward_port: 3000
+  - domains: ["portainer.lab"]
+    forward_host: "127.0.0.1"
+    forward_port: 9443
+    forward_scheme: https

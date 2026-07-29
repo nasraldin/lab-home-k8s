@@ -1,0 +1,96 @@
+services:
+  stalwart:
+    image: {{ stalwart_image }}
+    container_name: {{ stalwart_container_name }}
+    restart: unless-stopped
+    environment:
+      STALWART_RECOVERY_ADMIN: "{{ stalwart_recovery_user }}:{{ stalwart_recovery_password }}"
+      STALWART_PUBLIC_URL: "{{ stalwart_public_url }}"
+    # Keep 8080 loopback-only for bootstrap/health; Proxy Manager still fronts mail.lab
+    ports:
+{% for mapping in stalwart_publish_ports %}
+      - "{{ mapping }}"
+{% endfor %}
+      - "127.0.0.1:{{ stalwart_upstream_port }}:{{ stalwart_upstream_port }}"
+    expose:
+      - "{{ stalwart_upstream_port }}"
+    volumes:
+      - stalwart_etc:/etc/stalwart
+      - stalwart_data:/var/lib/stalwart
+    networks:
+      - default
+      - proxy
+
+{% if stalwart_webmail_enabled | bool %}
+  bulwark:
+    image: {{ stalwart_webmail_image }}
+    container_name: {{ stalwart_webmail_container_name }}
+    restart: unless-stopped
+    depends_on:
+      - stalwart
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "{{ stalwart_webmail_port }}"
+      # Env-managed (skips wizard). Browser gets $scheme://$host via NPM sub_filter
+      # so CSP connect-src 'self' works on webmail.lab and inbox.lab alike.
+      JMAP_SERVER_URL: "{{ stalwart_webmail_jmap_url }}"
+      STALWART_FEATURES: "true"
+      SESSION_SECRET: "{{ stalwart_webmail_session_secret }}"
+      SETTINGS_SYNC_ENABLED: "true"
+      # Lab is HTTP (NPM :80); Secure cookies would never stick in the browser
+      COOKIE_SECURE: "{{ stalwart_webmail_cookie_secure | bool | lower }}"
+    expose:
+      - "{{ stalwart_webmail_port }}"
+    # Loopback only — avoid clash with AdGuard on host :3000
+    ports:
+      - "127.0.0.1:{{ stalwart_webmail_host_port }}:{{ stalwart_webmail_port }}"
+    volumes:
+      - bulwark_settings:/app/data/settings
+      - bulwark_config:/app/data/admin
+      - bulwark_state:/app/data/admin-state
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:{{ stalwart_webmail_port }}/api/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+{% if stalwart_npm_proxy_ip | default('') | length > 0 %}
+    # Hairpin fix: webmail.lab resolves to LAN IP from containers and times out
+    extra_hosts:
+{% for domain in stalwart_webmail_proxy_domains %}
+      - "{{ domain }}:{{ stalwart_npm_proxy_ip }}"
+{% endfor %}
+{% endif %}
+    networks:
+      - default
+      - proxy
+{% endif %}
+
+volumes:
+  stalwart_etc:
+    external: true
+    name: stalwart_etc
+  stalwart_data:
+    external: true
+    name: stalwart_data
+{% if stalwart_webmail_enabled | bool %}
+  bulwark_settings:
+    name: bulwark_settings
+  bulwark_config:
+    name: bulwark_config
+  bulwark_state:
+    name: bulwark_state
+{% endif %}
+
+networks:
+  proxy:
+    external: true
+    name: proxy

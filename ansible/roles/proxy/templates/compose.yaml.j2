@@ -1,0 +1,31 @@
+services:
+  proxy:
+    image: {{ proxy_image }}
+    container_name: proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      # Skip UI first-user setup — https://nginxproxymanager.com/advanced-config/#auto-initial-user-creation
+      INITIAL_ADMIN_EMAIL: "{{ proxy_initial_admin_email }}"
+      INITIAL_ADMIN_PASSWORD: "{{ proxy_initial_admin_password }}"
+    volumes:
+      - proxy_data:/data
+      - proxy_letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+
+volumes:
+  proxy_data:
+    name: proxy_data
+    external: true
+  proxy_letsencrypt:
+    name: proxy_letsencrypt
+    external: true
+
+networks:
+  proxy:
+    external: true
+    name: proxy

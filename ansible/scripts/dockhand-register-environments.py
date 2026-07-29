@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-DEFAULT_BASE = os.environ.get("DOCKHAND_URL", "http://192.168.68.22:3000")
+DEFAULT_BASE = os.environ.get("DOCKHAND_URL", "http://192.168.68.21:3000")
 DEFAULT_TOKEN_FILE = Path(
     os.environ.get(
         "DOCKHAND_HAWSER_TOKENS_FILE",
@@ -29,7 +29,7 @@ DEFAULT_TOKEN_FILE = Path(
     )
 )
 
-# Lab Docker engines for lab-home-k8s (no database/monitoring/sonar/elastic VMs).
+# Lab Docker engines for lab-home-k8s (Dockhand runs on docker-01 after restructure).
 LAB_ENVIRONMENTS: list[dict[str, Any]] = [
     {
         "name": "dockhand-local",
@@ -46,11 +46,11 @@ LAB_ENVIRONMENTS: list[dict[str, Any]] = [
         "agent_name": "docker-01",
     },
     {
-        "name": "infra-01",
+        "name": "infisical-01",
         "connectionType": "hawser-edge",
-        "labels": ["lab", "infra"],
-        "ansible_host": "infra-01",
-        "agent_name": "infra-01",
+        "labels": ["lab", "infisical"],
+        "ansible_host": "infisical-01",
+        "agent_name": "infisical-01",
     },
 ]
 
@@ -183,7 +183,7 @@ def main() -> int:
     # Agents on LAN should dial Dockhand over ws:// (Access on public hostname blocks agents)
     token_store["dockhand_server_url"] = os.environ.get(
         "DOCKHAND_SERVER_URL",
-        "ws://192.168.68.22:3000/api/hawser/connect",
+        "ws://192.168.68.21:3000/api/hawser/connect",
     )
     args.tokens_file.parent.mkdir(parents=True, exist_ok=True)
     args.tokens_file.write_text(json.dumps(token_store, indent=2) + "\n")

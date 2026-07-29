@@ -1,7 +1,8 @@
 ---
-- name: Dockhand management CT
-  hosts: dockhand_hosts
+- name: Dockhand on docker-01
+  hosts: docker-01
   become: true
   roles:
     - guest_common
+    - docker_host
     - dockhand

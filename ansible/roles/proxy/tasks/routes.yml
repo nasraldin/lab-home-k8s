@@ -1,0 +1,57 @@
+---
+# Route-only tasks for Proxy Manager (no compose recreate).
+- name: Require Proxy Manager initial admin credentials
+  ansible.builtin.assert:
+    that:
+      - (vault_proxy_admin_email is defined) or (vault_npm_admin_email is defined)
+      - proxy_initial_admin_email | length > 3
+      - "'@' in proxy_initial_admin_email"
+      - (vault_proxy_admin_password is defined) or (vault_npm_admin_password is defined)
+      - proxy_initial_admin_password | length >= 12
+    fail_msg: >-
+      Set vault_proxy_admin_email and vault_proxy_admin_password in secrets.yml.
+  no_log: true
+
+- name: Install NPM proxy-host helper
+  ansible.builtin.copy:
+    src: ensure_npm_proxy_host.py
+    dest: "{{ proxy_compose_dir }}/ensure_npm_proxy_host.py"
+    mode: "0755"
+
+- name: Require OpenClaw gateway token when openclaw.lab is proxied
+  ansible.builtin.assert:
+    that:
+      - vault_openclaw_gateway_token is defined
+      - vault_openclaw_gateway_token | length >= 16
+    fail_msg: >-
+      Set vault_openclaw_gateway_token in secrets.yml (Control UI #token= bootstrap).
+  when: >-
+    proxy_lab_hosts
+    | selectattr('domains', 'defined')
+    | map(attribute='domains')
+    | flatten
+    | select('equalto', 'openclaw.lab')
+    | list
+    | length > 0
+  no_log: true
+
+- name: Ensure Proxy Manager routes for portless *.lab UIs
+  ansible.builtin.command:
+    cmd: python3 {{ proxy_compose_dir }}/ensure_npm_proxy_host.py
+  environment:
+    NPM_URL: "{{ proxy_manager_url }}"
+    NPM_EMAIL: "{{ proxy_initial_admin_email }}"
+    NPM_PASSWORD: "{{ proxy_initial_admin_password }}"
+    DOMAINS: "{{ item.domains | to_json }}"
+    FORWARD_HOST: "{{ item.forward_host }}"
+    FORWARD_PORT: "{{ item.forward_port | string }}"
+    FORWARD_SCHEME: "{{ item.forward_scheme | default('http') }}"
+    ADVANCED_CONFIG: "{{ item.advanced_config | default('') }}"
+  loop: "{{ proxy_lab_hosts }}"
+  loop_control:
+    label: "{{ item.domains | join(',') }}"
+  register: proxy_lab_routes
+  changed_when: >-
+    'created' in (proxy_lab_routes.stdout | default(''))
+    or 'updated' in (proxy_lab_routes.stdout | default(''))
+  no_log: true

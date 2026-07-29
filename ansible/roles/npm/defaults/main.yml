@@ -1,7 +1,0 @@
----
-npm_compose_dir: /opt/npm
-npm_image: "jc21/nginx-proxy-manager:2.12.3"
-# Set via secrets.yml — Auto Initial User Creation
-# https://nginxproxymanager.com/advanced-config/#auto-initial-user-creation
-npm_initial_admin_email: "{{ vault_npm_admin_email }}"
-npm_initial_admin_password: "{{ vault_npm_admin_password }}"

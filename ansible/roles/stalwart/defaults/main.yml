@@ -1,0 +1,83 @@
+---
+# Stalwart mail + collaboration server (Docker)
+# Docs: https://stalw.art/docs/install/platform/docker/
+# HTTP UI via Proxy Manager on :80 → http://mail.lab (no :8080 in the URL).
+# Host :443 stays with Proxy Manager.
+#
+# Domain must be .test / .localhost / real FQDN — Stalwart rejects .lab.
+
+stalwart_compose_dir: /opt/stalwart
+stalwart_image: "stalwartlabs/stalwart:v0.16"
+stalwart_container_name: stalwart
+
+stalwart_hostname: "mail.{{ lab_mail_zone | default('dev.test') }}"
+# Public URL advertised in JMAP sessions. Use webmail.lab so Bulwark stays same-origin
+# (browser calls JMAP on the webmail host; NPM routes /jmap → Stalwart).
+stalwart_public_url: "http://webmail.lab"
+stalwart_mail_domain: "{{ lab_mail_zone | default('dev.test') }}"
+stalwart_upstream_port: 8080
+# Admin UI remains on mail.lab (same Stalwart container via NPM).
+stalwart_admin_public_url: "http://mail.lab"
+
+stalwart_recovery_user: "admin"
+stalwart_recovery_password: "{{ vault_stalwart_recovery_password }}"
+# Post-wizard admin (Bootstrap generates a secret; we reset to this)
+stalwart_admin_email: "admin@{{ stalwart_mail_domain }}"
+stalwart_admin_password: "{{ vault_stalwart_admin_password }}"
+
+# Default seed mailboxes (admin uses admin password; others share mailbox password)
+stalwart_seed_mailboxes:
+  - admin
+  - info
+  - noreply
+  - support
+  - notify
+stalwart_mailbox_password: "{{ vault_stalwart_mailbox_password }}"
+
+stalwart_bootstrap_script: "{{ stalwart_compose_dir }}/bootstrap_lab_mail.py"
+stalwart_creds_file: "{{ stalwart_compose_dir }}/bootstrap-admin.json"
+
+# Mail protocol ports on the host (HTTP stays on Proxy Manager :80)
+stalwart_publish_ports:
+  - "25:25"
+  - "587:587"
+  - "465:465"
+  - "143:143"
+  - "993:993"
+  - "110:110"
+  - "995:995"
+  - "4190:4190"
+
+# Proxy Manager (same host) fronts the admin UI
+stalwart_proxy_manager_url: "http://127.0.0.1:81"
+stalwart_proxy_domains:
+  - "mail.lab"
+  - "mail.lab.nasraldin.com"
+  - "mail.{{ lab_mail_zone | default('dev.test') }}"
+stalwart_proxy_admin_email: "{{ vault_proxy_admin_email }}"
+stalwart_proxy_admin_password: "{{ vault_proxy_admin_password }}"
+
+# Bulwark — JMAP webmail built for Stalwart (inbox UI for lab/dev)
+# https://bulwarkmail.org/  ·  https://github.com/bulwarkmail/webmail
+stalwart_webmail_enabled: true
+stalwart_webmail_image: "ghcr.io/bulwarkmail/webmail:1.7.8"
+stalwart_webmail_container_name: bulwark
+stalwart_webmail_port: 3000
+# Host loopback only (AdGuard already owns :3000 on infra-01)
+stalwart_webmail_host_port: 3002
+# Canonical JMAP URL for Bulwark env (skips setup wizard; used server-side + as the
+# string NPM rewrites in /api/config). Must NOT be a Docker hostname.
+# Browser sees $scheme://$host instead (NPM sub_filter) so CSP connect-src 'self'
+# works on both webmail.lab and inbox.lab. NPM locations proxy /jmap → Stalwart.
+# From inside Docker, webmail.lab→LAN IP hairpins and times out; compose extra_hosts
+# points these names at the NPM container IP on the proxy network (deploy-time).
+stalwart_webmail_jmap_url: "http://webmail.lab"
+# NODE_ENV=production defaults Secure cookies on; lab serves HTTP via NPM.
+stalwart_webmail_cookie_secure: false
+stalwart_webmail_session_secret: "{{ vault_bulwark_session_secret }}"
+stalwart_webmail_proxy_domains:
+  - "webmail.lab"
+  - "inbox.lab"
+# Docker network that NPM + Stalwart + Bulwark share (for hairpin extra_hosts).
+stalwart_proxy_docker_network: proxy
+stalwart_proxy_docker_container: proxy

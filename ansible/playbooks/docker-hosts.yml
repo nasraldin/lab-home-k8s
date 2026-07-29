@@ -1,10 +1,16 @@
 ---
-- name: Docker app host (NPM, it-tools, mailpit)
+# After restructure: apps + edge + mail + object storage + Dockhand/Portainer on docker-01.
+# OpenClaw may already be present (parallel work) — do not remove it here.
+- name: Docker app host (proxy, mail, tools, Dockhand, Portainer, AIStor)
   hosts: docker-01
   become: true
   roles:
     - guest_common
     - docker_host
-    - npm
+    - proxy
+    - stalwart
     - it_tools
     - mailpit
+    - aistor
+    - dockhand
+    - portainer
