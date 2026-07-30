@@ -112,6 +112,18 @@ projects:
           optional: true,
         }
       - {
+          key: LIBRECHAT_ADMIN_EMAIL,
+          from: vault_librechat_admin_email,
+          path: /librechat,
+          optional: true,
+        }
+      - {
+          key: LIBRECHAT_ADMIN_PASSWORD,
+          from: vault_librechat_admin_password,
+          path: /librechat,
+          optional: true,
+        }
+      - {
           key: LITELLM_MASTER_KEY,
           from: vault_litellm_master_key,
           path: /litellm,

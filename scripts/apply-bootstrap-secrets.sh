@@ -23,6 +23,7 @@ declare vault_grafana_admin_password vault_harbor_admin_password vault_keycloak_
 declare vault_keycloak_db_password vault_sonarqube_db_password vault_postgres_password
 declare vault_librechat_creds_iv vault_librechat_creds_key vault_librechat_jwt_refresh_secret
 declare vault_librechat_jwt_secret vault_librechat_meili_master_key vault_litellm_master_key
+declare vault_librechat_admin_email vault_librechat_admin_password
 declare vault_litellm_postgres_password vault_litellm_postgres_user_password vault_n8n_encryption_key
 declare vault_openclaw_gateway_token
 eval "$(
@@ -42,6 +43,8 @@ keys = [
   "vault_librechat_jwt_refresh_secret",
   "vault_librechat_jwt_secret",
   "vault_librechat_meili_master_key",
+  "vault_librechat_admin_email",
+  "vault_librechat_admin_password",
   "vault_litellm_master_key",
   "vault_n8n_encryption_key",
   "vault_openclaw_gateway_token",
@@ -115,6 +118,8 @@ kubectl -n ai-tools create secret generic librechat-env \
   --from-literal=JWT_SECRET="${vault_librechat_jwt_secret}" \
   --from-literal=MEILI_MASTER_KEY="${vault_librechat_meili_master_key}" \
   --from-literal=LITELLM_API_KEY="${vault_litellm_master_key}" \
+  --from-literal=LIBRECHAT_ADMIN_EMAIL="${vault_librechat_admin_email}" \
+  --from-literal=LIBRECHAT_ADMIN_PASSWORD="${vault_librechat_admin_password}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n ai-tools create secret generic litellm-secrets \
