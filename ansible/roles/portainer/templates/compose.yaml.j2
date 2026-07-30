@@ -3,6 +3,11 @@ services:
     image: {{ portainer_image }}
     container_name: portainer
     restart: unless-stopped
+    # bcrypt hash — doubles $$ so Compose does not interpolate. Avoids the
+    # 5-minute admin init timeout on first boot.
+    command:
+      - --admin-password
+      - {{ portainer_admin_password_hash | replace('$', '$$') }}
     ports:
       - "{{ portainer_https_port }}:9443"
       - "{{ portainer_edge_port }}:8000"
