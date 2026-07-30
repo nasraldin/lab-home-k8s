@@ -1,4 +1,5 @@
 # Jumpbox LXC 112 (ssh-01) — SSH + operator tools only (no LAN app ports)
+# Day-0: infra_operator seeds nasr from root keys, then disables PermitRootLogin.
 ansible_user: nasr
 guest_extra_ufw_rules:
   - { rule: allow, port: "22", proto: tcp, from_ip: "192.168.68.0/22", comment: lab-ssh }

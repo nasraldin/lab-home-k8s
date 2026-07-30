@@ -49,5 +49,51 @@ pct set 114 --startup order=1,up=15 || true
 create_ct 125 infisical-01 192.168.68.25 4096 40 2 "infisical;secrets;core"
 pct set 125 --startup order=12 || true
 
-echo "Done. llm-01 (126/.26) is GPU/privileged — create via Terraform or manual pct with device passthrough."
+echo "Done. Creating privileged llm-01 (GPU device passthrough) as root@pam…"
+
+# llm-01 — privileged Ubuntu; API tokens cannot set device passthrough (root@pam only).
+LLM_TEMPLATE="${LLM_TEMPLATE:-local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst}"
+if pct status 126 &>/dev/null; then
+  echo "CT 126 (llm-01) already exists — skip create"
+else
+  printf '%s\n' "$NODE_SSH_KEY" > /tmp/llm01-ssh.pub
+  pct create 126 "$LLM_TEMPLATE" \
+    --hostname llm-01 \
+    --cores 8 \
+    --memory 24576 \
+    --swap 0 \
+    --rootfs "${STORAGE}:100" \
+    --net0 "name=eth0,bridge=${BRIDGE},firewall=0,gw=${GW},ip=192.168.68.26/22,type=veth" \
+    --unprivileged 0 \
+    --features nesting=1 \
+    --ostype ubuntu \
+    --onboot 1 \
+    --tags "ai;ollama;gpu;llm" \
+    --ssh-public-keys /tmp/llm01-ssh.pub \
+    --dev0 path=/dev/dri/renderD128,gid=44,mode=0666 \
+    --dev1 path=/dev/dri/card1,gid=44,mode=0666 \
+    --dev2 path=/dev/kfd,gid=993,mode=0666 \
+    --startup order=13 \
+    --start 1
+  rm -f /tmp/llm01-ssh.pub
+  # Ubuntu template may not bring up eth0 from LXC net0 alone — seed ifupdown.
+  pct exec 126 -- bash -c '
+    if ! ip -4 addr show eth0 2>/dev/null | grep -q "192.168.68.26"; then
+      cat > /etc/network/interfaces <<IEOF
+auto lo
+iface lo inet loopback
+auto eth0
+iface eth0 inet static
+    address 192.168.68.26/22
+    gateway 192.168.68.1
+IEOF
+      ip link set eth0 up
+      ip addr add 192.168.68.26/22 dev eth0 2>/dev/null || true
+      ip route replace default via 192.168.68.1
+    fi
+  ' || true
+fi
+
+echo "Import llm-01 into Terraform if missing:"
+echo "  cd terraform && terraform import 'proxmox_virtual_environment_container.ct[\"llm-01\"]' pve01/126"
 pct list

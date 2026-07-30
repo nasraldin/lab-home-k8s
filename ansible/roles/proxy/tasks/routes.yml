@@ -51,6 +51,9 @@
   loop_control:
     label: "{{ item.domains | join(',') }}"
   register: proxy_lab_routes
+  retries: 12
+  delay: 5
+  until: proxy_lab_routes.rc == 0
   changed_when: >-
     'created' in (proxy_lab_routes.stdout | default(''))
     or 'updated' in (proxy_lab_routes.stdout | default(''))

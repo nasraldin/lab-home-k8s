@@ -1,5 +1,7 @@
 ---
+# Debian 13 uses ssh.socket; SIGHUP reload can race ("Cannot bind any address").
+# Restart is reliable; service comes back listening on :22.
 - name: Reload OpenSSH
   ansible.builtin.systemd:
     name: ssh
-    state: reloaded
+    state: restarted

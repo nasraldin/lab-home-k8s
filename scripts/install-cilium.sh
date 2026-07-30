@@ -15,8 +15,19 @@ if ! kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1; then
 fi
 
 echo "==> Adding Cilium Helm repo"
-helm repo add cilium https://helm.cilium.io/ >/dev/null
-helm repo update cilium >/dev/null
+# Helm chart index fetch can flake on UDP DNS / GitHub pages; retry.
+for attempt in 1 2 3 4 5; do
+  if helm repo add cilium https://helm.cilium.io/ --force-update >/dev/null 2>&1 \
+    && helm repo update cilium >/dev/null 2>&1; then
+    break
+  fi
+  echo "    helm repo update failed (attempt ${attempt}/5); retrying…"
+  sleep $((attempt * 3))
+  if [[ $attempt -eq 5 ]]; then
+    echo "ERROR: cannot update helm.cilium.io — check DNS (AdGuard .14) and HTTPS egress" >&2
+    exit 1
+  fi
+done
 
 echo "==> Installing / upgrading Cilium"
 helm upgrade --install cilium cilium/cilium \

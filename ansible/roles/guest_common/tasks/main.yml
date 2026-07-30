@@ -12,6 +12,23 @@
 - name: Set hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
+  when: not (guest_is_container | bool)
+
+# hostnamectl/dbus can time out in LXC; write files instead.
+- name: Set hostname files on containers
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    content: "{{ inventory_hostname }}\n"
+    mode: "0644"
+  loop:
+    - /etc/hostname
+  when: guest_is_container | bool
+
+- name: Apply hostname in container namespace
+  ansible.builtin.command:
+    cmd: hostname {{ inventory_hostname }}
+  changed_when: false
+  when: guest_is_container | bool
 
 - name: Ensure /etc/hosts has short hostname
   ansible.builtin.lineinfile:
