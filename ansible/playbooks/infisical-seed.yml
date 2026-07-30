@@ -21,12 +21,28 @@
     infisical_url: "{{ vault_infisical_url | default('http://192.168.68.25:8090') }}"
     dry_run: false
   tasks:
-    - name: Ensure PyYAML available
+    - name: Check PyYAML importable
+      ansible.builtin.command:
+        cmd: python3 -c "import yaml"
+      register: pyyaml_check
+      changed_when: false
+      failed_when: false
+      become: false
+
+    - name: Ensure PyYAML available (user install; skip if already importable)
       ansible.builtin.pip:
         name: pyyaml
         state: present
         executable: pip3
+        extra_args: --user
       become: false
+      when: pyyaml_check.rc != 0
+
+    - name: Resolve Infisical UA / org from secrets.yml defaults
+      ansible.builtin.set_fact:
+        _infisical_ua_client_id: "{{ infisical_ua_client_id | default(vault_infisical_ua_client_id) | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_ID'), true) }}"
+        _infisical_ua_client_secret: "{{ infisical_ua_client_secret | default(vault_infisical_ua_client_secret) | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET'), true) }}"
+        _infisical_org_id: "{{ infisical_org_id | default(vault_infisical_org_id) | default(lookup('env', 'INFISICAL_ORG_ID'), true) }}"
 
     - name: Run Infisical seed script
       ansible.builtin.command:
@@ -36,11 +52,11 @@
         SECRETS_FILE: "{{ playbook_dir }}/../secrets.yml"
         SEED_MAP: "{{ playbook_dir }}/../files/infisical/seed-map.yaml"
         DRY_RUN: "{{ '1' if dry_run | bool else '0' }}"
-        INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: "{{ infisical_ua_client_id | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_ID')) }}"
-        INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: "{{ infisical_ua_client_secret | default(lookup('env', 'INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET')) }}"
-        INFISICAL_EMAIL: "{{ infisical_email | default(lookup('env', 'INFISICAL_EMAIL')) }}"
-        INFISICAL_PASSWORD: "{{ infisical_password | default(lookup('env', 'INFISICAL_PASSWORD')) }}"
-        INFISICAL_ORG_ID: "{{ infisical_org_id | default(lookup('env', 'INFISICAL_ORG_ID')) }}"
+        INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: "{{ _infisical_ua_client_id }}"
+        INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: "{{ _infisical_ua_client_secret }}"
+        INFISICAL_EMAIL: "{{ infisical_email | default(vault_infisical_admin_email) | default(lookup('env', 'INFISICAL_EMAIL'), true) }}"
+        INFISICAL_PASSWORD: "{{ infisical_password | default(vault_infisical_admin_password) | default(lookup('env', 'INFISICAL_PASSWORD'), true) }}"
+        INFISICAL_ORG_ID: "{{ _infisical_org_id }}"
       register: seed_result
       changed_when: "'upsert' in seed_result.stdout or 'Creating project' in seed_result.stdout"
       failed_when: seed_result.rc != 0

@@ -40,6 +40,15 @@
     owner: root
     group: root
 
+# Gateway refuses to start without gateway.mode=local (exit 78).
+- name: Seed OpenClaw gateway config
+  ansible.builtin.template:
+    src: openclaw.json.j2
+    dest: "{{ openclaw_compose_dir }}/data/openclaw.json"
+    owner: "1000"
+    group: "1000"
+    mode: "0640"
+
 - name: Build OpenClaw overlay image (npm {{ openclaw_npm_version }} on {{ openclaw_base_image }})
   ansible.builtin.command:
     cmd: >-

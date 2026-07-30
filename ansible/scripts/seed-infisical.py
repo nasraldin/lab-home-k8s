@@ -3,7 +3,7 @@
 
 Prerequisites
 -------------
-1. Infisical running (infra-01:8090) and an org + admin user exist (first-login UI).
+1. Infisical running (infisical-01:8090) and admin bootstrap + Universal Auth done.
 2. A machine identity with Universal Auth, or email/password of an org admin.
 3. secrets.yml filled from secrets.example.yml (never commit secrets.yml).
 

@@ -1,0 +1,92 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "token"
+    },
+    "trustedProxies": [
+      "192.168.68.21",
+      "192.168.68.14",
+      "10.244.0.0/16",
+      "192.168.68.17",
+      "192.168.68.18",
+      "192.168.68.19",
+      "192.168.68.20"
+    ],
+    "controlUi": {
+      "enabled": true,
+      "allowedOrigins": [
+        "http://openclaw.lab",
+        "http://192.168.68.113:18789",
+        "http://192.168.68.21:18789"
+      ],
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true
+    }
+  },
+  "models": {
+    "providers": {
+      "litellm": {
+        "baseUrl": "http://litellm.lab/v1",
+        "apiKey": "${LITELLM_API_KEY}",
+        "api": "openai-completions",
+        "request": { "allowPrivateNetwork": true },
+        "models": [
+          {
+            "id": "gemma4:12b",
+            "name": "Gemma4 12B (fast)",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 32768,
+            "maxTokens": 4096
+          },
+          {
+            "id": "qwen3.5:9b",
+            "name": "Qwen3.5 9B",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 32768,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "~/.openclaw/workspace",
+      "model": { "primary": "litellm/gemma4:12b" },
+      "contextTokens": 32768,
+      "bootstrapMaxChars": 4000,
+      "userTimezone": "UTC",
+      "timeoutSeconds": 600,
+      "maxConcurrent": 1
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "OpenClaw",
+        "workspace": "~/.openclaw/workspace",
+        "identity": { "name": "OpenClaw" }
+      }
+    ]
+  },
+  "browser": { "enabled": false },
+  "cron": { "enabled": false },
+  "tools": {
+    "profile": "coding",
+    "web": {
+      "search": { "enabled": false },
+      "fetch": { "enabled": true }
+    }
+  },
+  "logging": {
+    "level": "info",
+    "consoleLevel": "info",
+    "consoleStyle": "compact",
+    "redactSensitive": "tools"
+  }
+}
