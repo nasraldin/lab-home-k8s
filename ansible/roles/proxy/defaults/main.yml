@@ -20,18 +20,35 @@ proxy_lab_hosts:
   # OpenClaw: WebSocket upgrade on; Control UI auth via official #token= fragment
   # bootstrap (https://docs.openclaw.ai/web/dashboard). Token from vault only —
   # never commit the rendered advanced_config.
+  #
+  # IMPORTANT: Do not unconditionally 302 `/` → `/__oc_boot`. That loops forever:
+  # boot does location.replace("/#token=…"), browser re-requests `/` (fragment not
+  # sent), NPM 302s again (browser keeps #token on `/__oc_boot`), and WS upgrades
+  # to `/` never reach the gateway. Skip redirect for Upgrade: websocket and after
+  # the oc_boot cookie set by the boot page.
   - domains: ["openclaw.lab"]
     forward_host: "{{ cilium_lb_ips.openclaw }}"
     forward_port: 18789
     advanced_config: |
       # Official dashboard token bootstrap (URL fragment; not sent to upstream).
-      # Bare / → tiny boot page → /#token=…; Control UI stores token in sessionStorage and strips the hash.
+      # Bare / → /__oc_boot (once) → /#token=…; then `/` + WS proxy normally.
+      set $oc_boot_redirect 0;
       if ($request_uri = "/") {
+        set $oc_boot_redirect 1;
+      }
+      if ($http_upgrade = "websocket") {
+        set $oc_boot_redirect 0;
+      }
+      if ($cookie_oc_boot = "1") {
+        set $oc_boot_redirect 0;
+      }
+      if ($oc_boot_redirect = 1) {
         return 302 /__oc_boot;
       }
       location = /__oc_boot {
         default_type text/html;
         charset utf-8;
+        add_header Set-Cookie "oc_boot=1; Path=/; SameSite=Lax" always;
         return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><title>OpenClaw</title><script>location.replace("/#token={{ vault_openclaw_gateway_token }}");</script></head><body>Connecting…</body></html>';
       }
   - domains: ["webmail.lab", "inbox.lab"]
