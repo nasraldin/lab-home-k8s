@@ -1,5 +1,5 @@
 # Maps ansible/secrets.yml keys → Infisical project / path / secret name.
-# Consumed by scripts/seed-infisical.py after Infisical is up on infra-01.
+# Consumed by scripts/seed-infisical.py after Infisical is up on infisical-01.
 #
 # Projects (slug):
 #   infra      — appliances, DNS, AIStor, GitLab platform, NPM

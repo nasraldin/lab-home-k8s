@@ -63,13 +63,15 @@ proxy_lab_hosts:
   - domains: ["infisical.lab"]
     forward_host: "{{ guest_ips['infisical-01'] }}"
     forward_port: 8090
+  # Host-published ports: NPM runs on the `proxy` bridge, so 127.0.0.1 is the
+  # NPM container itself (not docker-01). Use the LAN IP (hairpin works).
   - domains: ["minio.lab"]
-    forward_host: "127.0.0.1"
+    forward_host: "{{ guest_ips['docker-01'] }}"
     forward_port: 9001
   - domains: ["dockhand.lab", "docker.lab"]
-    forward_host: "127.0.0.1"
+    forward_host: "{{ guest_ips['docker-01'] }}"
     forward_port: 3000
   - domains: ["portainer.lab"]
-    forward_host: "127.0.0.1"
+    forward_host: "{{ guest_ips['docker-01'] }}"
     forward_port: 9443
     forward_scheme: https

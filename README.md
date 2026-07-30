@@ -7,7 +7,10 @@ Day-2 platform apps live in [`lab-home-gitops`](https://github.com/nasraldin/lab
 **Documentation:** https://nasraldin.github.io/dev-homelab/ · monorepo ops:
 [`docs/operations/lab-home-inventory.md`](../docs/operations/lab-home-inventory.md)
 
-## Topology (target after 2026-07-30 restructure)
+Secrets pointer map (gitignored, **no live passwords**): `lab-home-k8s/CREDENTIALS.md`.
+Canonical secret store: `ansible/secrets.yml` + Infisical on `.25`.
+
+## Topology (live after 2026-07-30 restructure)
 
 | VMID/CTID | Host | IP | Role |
 | --------- | ---- | -- | ---- |

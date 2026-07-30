@@ -11,19 +11,19 @@ Do **not** move pve01 off `.13`.
 | ----- | -- |
 | pve01 | `.13` |
 | adguard-01 / dns-01 | `.10` / `.11` |
-| infra-01 (jumpbox after drain) | `.14` |
+| infra-01 (jumpbox) | `.14` |
 | gitlab-01 | `.15` |
 | runner-01 | `.16` |
-| k8s-cp-01 | `.17` |
+| k8s-cp-01 (**6 GiB**) | `.17` |
 | k8s-w-01..03 | `.18–.20` |
 | docker-01 | `.21` |
-| dockhand / portainer LXCs (legacy) | `.22` / `.23` |
-| ai-01 (standby) | `.24` |
 | infisical-01 | `.25` |
 | llm-01 | `.26` |
 | Cilium LB pool | `.100–.119` |
 
-See also: [bring-up-issues-2026-07.md](./bring-up-issues-2026-07.md) · `CREDENTIALS.md` (gitignored)
+**Destroyed (do not recreate):** VM 110 fat infra, LXC 118/119 Dockhand/Portainer, VM 120 `ai-01`.
+
+See also: [bring-up-issues-2026-07.md](./bring-up-issues-2026-07.md) · `CREDENTIALS.md` (gitignored pointer map)
 
 ---
 
@@ -51,9 +51,10 @@ terraform apply tfplan
 
 **Verify**
 
-- [ ] Guests running (VMs + CTs for DNS / Infisical / llm-01)
-- [ ] `ping` `.10` `.11` `.14`–`.21` `.25` `.26` (and legacy `.22`/`.23` if still present)
+- [ ] Guests running (VMs + CTs for DNS / Infisical / llm-01 / jumpbox)
+- [ ] `ping` `.10` `.11` `.14`–`.21` `.25` `.26`
 - [ ] `pve01` still `.13` with default route via `.1`
+- [ ] Mac `/etc/resolver/lab` → `.10` (`ansible-lab/scripts/mac-resolver-lab.sh`)
 
 ---
 
