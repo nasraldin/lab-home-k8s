@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Create restructure LXCs on pve01 via pct (when Terraform API is flaky).
-# Run on Mac: ssh root@192.168.68.13 'bash -s' < scripts/pct-create-restructure-lxcs.sh
+# Create / document lab LXCs on pve01 via pct (when Terraform API is flaky).
+# Target IDs align with last-octet (1xx). Jumpbox is ssh-01 — not infra.
+# Run on Mac: ssh root@192.168.68.13 'bash -s' < terraform/scripts/pct-create-restructure-lxcs.sh
 set -euo pipefail
 
 NODE_SSH_KEY="${NODE_SSH_KEY:-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH9wRDs8478+qe0aQk1Cfwv98FHoByrmWLP63Rngbn/G pve01.lab.nasraldin.com}"
@@ -32,23 +33,21 @@ create_ct() {
   fi
 }
 
-# AdGuard recursive DNS — LAN primary after DHCP cutover
-create_ct 121 adguard-01 192.168.68.10 512 10 1 "dns;adguard;core"
-pct set 121 --startup order=1,up=15 || true
+# Technitium authoritative — ID 111 = .11
+create_ct 111 dns-01 192.168.68.11 512 10 1 "dns;technitium;core"
+pct set 111 --startup order=2,up=10 || true
 
-# Technitium authoritative
-create_ct 122 dns-01 192.168.68.11 512 10 1 "dns;technitium;core"
-pct set 122 --startup order=2,up=10 || true
+# Jumpbox — ssh-01 at .12 (NOT infra)
+create_ct 112 ssh-01 192.168.68.12 2048 20 2 "ssh;jumpbox;core"
+pct set 112 --startup order=3,up=10 || true
 
-# Infisical + Postgres + Redis
-create_ct 123 infisical-01 192.168.68.25 4096 40 2 "infisical;secrets;core"
-pct set 123 --startup order=12 || true
+# AdGuard recursive DNS — .14 (PVE is .13); DHCP Primary
+create_ct 114 adguard-01 192.168.68.14 512 10 1 "dns;adguard;core"
+pct set 114 --startup order=1,up=15 || true
 
-echo "Done. pct list:"
+# Infisical
+create_ct 125 infisical-01 192.168.68.25 4096 40 2 "infisical;secrets;core"
+pct set 125 --startup order=12 || true
+
+echo "Done. llm-01 (126/.26) is GPU/privileged — create via Terraform or manual pct with device passthrough."
 pct list
-echo
-echo "Next on Mac:"
-echo "  cd ~/homelab/lab-home-k8s/ansible"
-echo "  ssh-keyscan -H 192.168.68.10 192.168.68.11 192.168.68.25 >> ~/.ssh/known_hosts"
-echo "  ansible-playbook playbooks/dns.yml -e @secrets.yml"
-echo "  ansible-playbook playbooks/infisical.yml -e @secrets.yml"

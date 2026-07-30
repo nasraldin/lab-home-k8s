@@ -2,7 +2,7 @@
 # Seed Infisical projects/folders/secrets from secrets.yml.
 #
 # Prerequisites:
-#   - Infisical healthy on infra-01 (:8090)
+#   - Infisical healthy on infisical-01 (:8090)
 #   - Org + admin created once in the UI
 #   - Machine identity Universal Auth OR admin email/password
 #

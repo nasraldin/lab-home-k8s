@@ -1,5 +1,5 @@
 # Refresh Nginx Proxy Manager *.lab routes (incl. OpenClaw #token= bootstrap).
-# NPM runs on docker-01 (post 2026-07-30 restructure; infra-01 is jumpbox only).
+# NPM runs on docker-01 (post 2026-07-30 restructure; ssh-01 is jumpbox only).
 # Usage: ansible-playbook playbooks/proxy-routes.yml -e @secrets.yml
 - name: Ensure Proxy Manager lab UI routes
   hosts: docker-01

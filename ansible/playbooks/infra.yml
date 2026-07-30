@@ -1,6 +1,5 @@
----
 # Jumpbox only — no Docker app stacks (those live on docker-01 / infisical-01 / DNS LXCs).
-- name: Configure infra-01 jumpbox
+- name: Configure ssh-01 jumpbox
   hosts: infrastructure
   gather_facts: true
   become: true

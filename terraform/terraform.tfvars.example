@@ -1,7 +1,7 @@
-# Single-lab inventory — post 2026-07-30 restructure. Copy to terraform.tfvars.
-# VMs 111–117/120; LXCs 121–125 (DNS, Infisical, jumpbox, llm-01). Destroyed: 110, 118, 119.
+# Single-lab inventory — ID = last octet in 1xx range (aligned 2026-07-30).
+# Jumpbox is ssh-01 (.12); AdGuard starts at .14; PVE fixed at .13.
 
-proxmox_endpoint = "https://pve01.lab.nasraldin.com:8006/"
+proxmox_endpoint = "https://192.168.68.13:8006/"
 node_name        = "pve01"
 
 network_gateway = "192.168.68.1"
@@ -9,15 +9,11 @@ network_bridge  = "vmbr0"
 vm_datastore    = "data01"
 
 default_username = "nasr"
-# ssh-copy-id root@pve01.lab.nasraldin.com  (needed for local-storage snippets step)
-ssh_public_key   = "ssh-ed25519 AAAA... replace-me"
+ssh_public_key   = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH9wRDs8478+qe0aQk1Cfwv98FHoByrmWLP63Rngbn/G pve01.lab.nasraldin.com"
 
-# Discover the data disk on the node:
-#   ssh root@pve01.lab.nasraldin.com 'ls -l /dev/disk/by-id/nvme-*'
-# Use the 4 TB Kingston (not the OS NVMe). Always by-id paths, never /dev/nvme1n1.
 zfs_pools = {
   data01 = {
-    device = "/dev/disk/by-id/nvme-REPLACE_ME"
+    device = "/dev/disk/by-id/nvme-KINGSTON_SFYRD4000G_50026B76871D1F07"
   }
 }
 
@@ -45,7 +41,7 @@ vms = {
   gitlab-01 = {
     image         = "debian-13"
     tags          = ["gitlab", "core", "debian"]
-    vm_id         = 111
+    vm_id         = 115
     cores         = 4
     memory        = 12288
     disk_gb       = 150
@@ -55,7 +51,7 @@ vms = {
   runner-01 = {
     image         = "debian-13"
     tags          = ["ci", "core", "debian"]
-    vm_id         = 112
+    vm_id         = 116
     cores         = 2
     memory        = 4096
     disk_gb       = 40
@@ -65,17 +61,19 @@ vms = {
   k8s-cp-01 = {
     image         = "debian-13"
     tags          = ["k8s", "control-plane", "debian"]
-    vm_id         = 113
+    vm_id         = 117
     cores         = 2
     memory        = 6144
     disk_gb       = 40
     ip            = "192.168.68.17/22"
     startup_order = 6
   }
+  # data_disk_gb = Longhorn store (scsi1 → /var/lib/longhorn). 700 GiB × 3 ≈ 2 TiB
+  # raw cluster capacity on data01 (ZFS thin). Grow later with: qm resize <vmid> scsi1 Ng
   k8s-w-01 = {
     image         = "debian-13"
     tags          = ["k8s", "worker", "debian"]
-    vm_id         = 114
+    vm_id         = 118
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -86,7 +84,7 @@ vms = {
   k8s-w-02 = {
     image         = "debian-13"
     tags          = ["k8s", "worker", "debian"]
-    vm_id         = 115
+    vm_id         = 119
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -97,7 +95,7 @@ vms = {
   k8s-w-03 = {
     image         = "debian-13"
     tags          = ["k8s", "worker", "debian"]
-    vm_id         = 116
+    vm_id         = 120
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -108,42 +106,34 @@ vms = {
   docker-01 = {
     image         = "debian-13"
     tags          = ["docker", "apps", "core", "debian"]
-    vm_id         = 117
+    vm_id         = 121
     cores         = 2
     memory        = 8192
     disk_gb       = 120
     ip            = "192.168.68.21/22"
     startup_order = 10
   }
-  # ai-01 (VM 120) removed — Ollama primary is LXC llm-01 (.26).
+  # ai-01 (VM 120) destroyed 2026-07-30 — Ollama primary is LXC llm-01 (.26).
 }
 
-# Reserved for VFIO rollback only; llm-01 uses LXC device passthrough.
+# Kept for rollback to VFIO VM path; llm-01 uses LXC device passthrough instead.
+# Host must NOT bind this GPU to vfio-pci while llm-01 runs (amdgpu on host).
 pci_mappings = {
   ai-igpu = {
-    id          = "1002:150e" # verify: lspci -nn -s c6:00.0
-    path        = "0000:c6:00.0"
-    iommu_group = 22
-    comment     = "Radeon 890M iGPU — reserved; LXC llm-01 is active path"
+    id            = "1002:150e" # verify: lspci -nn -s c6:00.0
+    subsystem_id  = "1f4c:b020"
+    path          = "0000:c6:00.0"
+    iommu_group   = 22
+    comment       = "Radeon 890M iGPU — reserved mapping; LXC llm-01 is active path"
   }
 }
 
 containers = {
-  adguard-01 = {
-    template     = "debian-13"
-    tags         = ["dns", "adguard", "core"]
-    vm_id        = 121
-    cores        = 1
-    memory       = 512
-    disk_gb      = 10
-    ip           = "192.168.68.10/22"
-    unprivileged = true
-    os_type      = "debian"
-  }
+  # Authoritative DNS — ID matches last octet (.11)
   dns-01 = {
     template     = "debian-13"
     tags         = ["dns", "technitium", "core"]
-    vm_id        = 122
+    vm_id        = 111
     cores        = 1
     memory       = 512
     disk_gb      = 10
@@ -151,10 +141,35 @@ containers = {
     unprivileged = true
     os_type      = "debian"
   }
+  # Jumpbox — SSH + operator tools only (formerly infra-01)
+  ssh-01 = {
+    template     = "debian-13"
+    tags         = ["ssh", "jumpbox", "core"]
+    vm_id        = 112
+    cores        = 2
+    memory       = 2048
+    disk_gb      = 20
+    ip           = "192.168.68.12/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+  # Recursive DNS + filtering — AdGuard starts at .14 (PVE is .13)
+  adguard-01 = {
+    template     = "debian-13"
+    tags         = ["dns", "adguard", "core"]
+    vm_id        = 114
+    cores        = 1
+    memory       = 512
+    disk_gb      = 10
+    ip           = "192.168.68.14/22"
+    unprivileged = true
+    os_type      = "debian"
+  }
+  # Infisical + local Postgres/Redis (official Compose; nesting for Docker)
   infisical-01 = {
     template     = "debian-13"
     tags         = ["infisical", "secrets", "core"]
-    vm_id        = 123
+    vm_id        = 125
     cores        = 2
     memory       = 4096
     disk_gb      = 40
@@ -162,21 +177,13 @@ containers = {
     unprivileged = true
     os_type      = "debian"
   }
-  infra-01 = {
-    template     = "debian-13"
-    tags         = ["infra", "jumpbox", "core"]
-    vm_id        = 124
-    cores        = 2
-    memory       = 2048
-    disk_gb      = 20
-    ip           = "192.168.68.14/22"
-    unprivileged = true
-    os_type      = "debian"
-  }
+  # Ollama + ROCm userspace — privileged for /dev/dri + /dev/kfd.
+  # Host prep: scripts/host-igpu-for-lxc.sh then reboot (no live VFIO→amdgpu bind).
+  # Docs: ../../docs/operations/ollama-llm-01.md
   llm-01 = {
     template     = "ubuntu-24.04"
     tags         = ["ai", "ollama", "gpu", "llm"]
-    vm_id        = 125
+    vm_id        = 126
     cores        = 8
     memory       = 24576
     disk_gb      = 100

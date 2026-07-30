@@ -10,23 +10,23 @@ Day-2 platform apps live in [`lab-home-gitops`](https://github.com/nasraldin/lab
 Secrets pointer map (gitignored, **no live passwords**): `lab-home-k8s/CREDENTIALS.md`.
 Canonical secret store: `ansible/secrets.yml` + Infisical on `.25`.
 
-## Topology (live after 2026-07-30 restructure)
+## Topology (live — ID↔IP aligned 2026-07-30)
 
 | VMID/CTID | Host | IP | Role |
 | --------- | ---- | -- | ---- |
+| **111** | `dns-01` | `.11` | Technitium authoritative — 512M/10G LXC |
+| **112** | `ssh-01` | `.12` | Jumpbox LXC (SSH / operator tools only) |
 | — | `pve01` | `192.168.68.13` | Proxmox (fixed) |
-| **121** | `adguard-01` | `.10` | AdGuard (DHCP Primary) — 512M/10G LXC |
-| **122** | `dns-01` | `.11` | Technitium authoritative — 512M/10G LXC |
-| **124** | `infra-01` | `.14` | Jumpbox LXC (SSH / operator tools only) |
-| **111** | `gitlab-01` | `.15` | GitLab CE |
-| **112** | `runner-01` | `.16` | Host GitLab Runner |
-| **113** | `k8s-cp-01` | `.17` | Control plane |
-| **114–116** | `k8s-w-01..03` | `.18–.20` | Workers + Longhorn data disks |
-| **117** | `docker-01` | `.21` | **All** Docker apps: NPM, Stalwart, AIStor, Dockhand, Portainer, it-tools, mailpit |
-| **123** | `infisical-01` | `.25` | Infisical + Postgres + Redis |
-| **125** | `llm-01` | `.26` | Ollama + ROCm userspace (`/dev/dri` + `/dev/kfd`) |
+| **114** | `adguard-01` | `.14` | AdGuard (DHCP Primary) — 512M/10G LXC |
+| **115** | `gitlab-01` | `.15` | GitLab CE |
+| **116** | `runner-01` | `.16` | Host GitLab Runner |
+| **117** | `k8s-cp-01` | `.17` | Control plane |
+| **118–120** | `k8s-w-01..03` | `.18–.20` | Workers + Longhorn data disks |
+| **121** | `docker-01` | `.21` | **All** Docker apps: NPM, Stalwart, AIStor, Dockhand, Portainer, it-tools, mailpit |
+| **125** | `infisical-01` | `.25` | Infisical + Postgres + Redis |
+| **126** | `llm-01` | `.26` | Ollama + ROCm userspace (`/dev/dri` + `/dev/kfd`) |
 
-Destroyed: VM **110** (fat infra), LXC **118/119** (Dockhand/Portainer), VM **120** (`ai-01`).
+Destroyed earlier: VM **110** (fat infra), old Dockhand/Portainer LXCs, VM **`ai-01`**. Jumpbox renamed `infra-01` → `ssh-01`.
 
 API: `192.168.68.17:6443`. Cilium LB pool: `192.168.68.100–119`.
 
@@ -38,8 +38,8 @@ Inference path: **clients → LiteLLM (`.108`) → Ollama on `llm-01` (`.26:1143
 
 1. Host loads **`amdgpu`** (no VFIO bind): `scripts/host-igpu-for-lxc.sh` then **reboot**.
 2. Confirm: `lspci -nnk -s c6:00.0` → `amdgpu`; `/dev/dri/renderD128` + `/dev/kfd`.
-3. `terraform apply` (CT 125) → `ansible-playbook playbooks/ollama.yml`.
-4. `ai-01` (VM 120) removed after GPU verified on `llm-01`.
+3. `terraform apply` (CT 126) → `ansible-playbook playbooks/ollama.yml`.
+4. `ai-01` removed after GPU verified on `llm-01`.
 
 Docs: [ollama-llm-01](../docs/operations/ollama-llm-01.md).
 

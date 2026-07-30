@@ -1,18 +1,30 @@
-infra-01:
+ssh-01:
+  paths:
+    - ansible/playbooks/infra.yml
+    - ansible/roles/infra_operator/**
+    - ansible/inventory/group_vars/all.yml
+    - terraform/terraform.tfvars
+  tf_target: ssh-01
+  ansible_playbook: playbooks/infra.yml
+  ansible_limit: ssh-01
+
+adguard-01:
   paths:
     - ansible/roles/adguard_home/**
-    - ansible/roles/technitium_dns/**
+    - ansible/playbooks/dns.yml
     - ansible/inventory/group_vars/all.yml
-    - config/public-urls.yml
-    - ansible/roles/proxy/**
-    - ansible/roles/stalwart/**
-    - ansible/roles/infisical/**
-    - ansible/roles/aistor/**
-    - ansible/playbooks/infra.yml
-    - terraform/terraform.tfvars
-  tf_target: infra-01
-  ansible_playbook: playbooks/infra.yml
-  ansible_limit: infra-01
+  tf_target: adguard-01
+  ansible_playbook: playbooks/dns.yml
+  ansible_limit: adguard-01
+
+dns-01:
+  paths:
+    - ansible/roles/technitium_dns/**
+    - ansible/playbooks/dns.yml
+    - ansible/inventory/group_vars/all.yml
+  tf_target: dns-01
+  ansible_playbook: playbooks/dns.yml
+  ansible_limit: dns-01
 
 gitlab-01:
   paths:

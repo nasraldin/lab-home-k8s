@@ -8,14 +8,14 @@ lab_mail_zone: "dev.test"
 public_zone: "nasraldin.com"
 gateway_ip: "192.168.68.1"
 pve_ip: "192.168.68.13" # Proxmox hypervisor (not a guest VM)
-adguard_ip: "192.168.68.10"
+adguard_ip: "192.168.68.14"
 technitium_ip: "192.168.68.11"
 
-# Guest LAN addresses (post-restructure 2026-07-30)
+# Guest LAN addresses — ID = last octet in 1xx (aligned 2026-07-30)
 guest_ips:
-  adguard-01: "192.168.68.10"
+  adguard-01: "192.168.68.14"
   dns-01: "192.168.68.11"
-  infra-01: "192.168.68.14"
+  ssh-01: "192.168.68.12"
   gitlab-01: "192.168.68.15"
   runner-01: "192.168.68.16"
   k8s-cp-01: "192.168.68.17"
@@ -135,7 +135,7 @@ technitium_zone_records:
   - { name: "pve01", value: "{{ pve_ip }}" }
   - { name: "adguard-01", value: "{{ guest_ips['adguard-01'] }}" }
   - { name: "dns-01", value: "{{ guest_ips['dns-01'] }}" }
-  - { name: "infra-01", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "ssh-01", value: "{{ guest_ips['ssh-01'] }}" }
   - { name: "gitlab-01", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "runner-01", value: "{{ guest_ips['runner-01'] }}" }
   - { name: "k8s-cp-01", value: "{{ guest_ips['k8s-cp-01'] }}" }
@@ -160,7 +160,8 @@ technitium_zone_records:
 technitium_short_zone_records:
   - { name: "pve", value: "{{ pve_ip }}" }
   - { name: "proxmox", value: "{{ pve_ip }}" }
-  - { name: "infra", value: "{{ guest_ips['infra-01'] }}" }
+  - { name: "ssh", value: "{{ guest_ips['ssh-01'] }}" }
+  - { name: "ssh-01", value: "{{ guest_ips['ssh-01'] }}" }
   - { name: "gitlab", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "registry", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "runner", value: "{{ guest_ips['runner-01'] }}" }
@@ -229,7 +230,7 @@ lab_dns: "{{ adguard_ip }}"
 cilium_lb_pool_cidrs:
   - "192.168.68.100-192.168.68.119"
 # Do NOT set ansible_user here — it overrides LXC groups that need root
-# (dns-01, adguard-01, infisical-01, infra-01, llm-01). Per-group/host
+# (dns-01, adguard-01, infisical-01, ssh-01, llm-01). Per-group/host
 # ansible_user lives in inventory/hosts.yml and host_vars/*.yml.
 
 adguard_admin_user: admin
