@@ -99,7 +99,7 @@ class InfisicalClient:
         return []
 
     def create_workspace(self, name: str, slug: str, org_id: str) -> dict[str, Any]:
-        # Infisical project create (API evolved; try common shapes).
+        # Infisical may auto-suffix slugs on create — we PATCH the exact slug after.
         payloads = [
             {
                 "projectName": name,
@@ -107,9 +107,17 @@ class InfisicalClient:
                 "template": "default",
                 "type": "secret-manager",
             },
+            {
+                "projectName": name,
+                "projectDescription": name,
+                "slug": slug if len(slug) >= 5 else f"{slug}-lab",
+                "template": "default",
+                "type": "secret-manager",
+            },
             {"name": name, "slug": slug},
         ]
         last_err: Exception | None = None
+        created: dict[str, Any] | None = None
         for body in payloads:
             if org_id:
                 body = {**body, "organizationId": org_id}
@@ -119,48 +127,58 @@ class InfisicalClient:
                 "/api/v1/projects",
             ):
                 try:
-                    return self._req("POST", path, body)
+                    created = self._req("POST", path, body)
+                    break
                 except RuntimeError as e:
                     last_err = e
                     continue
-        raise RuntimeError(f"create project {slug} failed: {last_err}")
+            if created is not None:
+                break
+        if created is None:
+            raise RuntimeError(f"create project {slug} failed: {last_err}")
+
+        ws = created.get("workspace") or created.get("project") or created
+        project_id = ws.get("id") or ws.get("_id") or ws.get("workspaceId")
+        if project_id and (ws.get("slug") or "") != slug:
+            try:
+                patched = self._req(
+                    "PATCH",
+                    f"/api/v1/workspace/{project_id}",
+                    {"slug": slug, "name": name},
+                )
+                return patched.get("workspace") or patched.get("project") or patched
+            except RuntimeError as e:
+                print(f"  WARN: could not set slug={slug}: {e}", file=sys.stderr)
+        return ws
 
     def ensure_folder(
         self, project_id: str, environment: str, path: str
     ) -> None:
         if path in ("", "/"):
             return
-        # Create folder; ignore if exists.
-        body = {
-            "workspaceId": project_id,
-            "environment": environment,
-            "name": path.strip("/").split("/")[-1],
-            "path": "/" + "/".join(path.strip("/").split("/")[:-1])
-            if "/" in path.strip("/")
-            else "/",
-        }
-        # Newer API uses projectId + folderName
-        alt = {
-            "projectId": project_id,
-            "environment": environment,
-            "name": path.strip("/").split("/")[-1],
-            "path": "/"
-            if path.count("/") <= 1
-            else "/" + "/".join(path.strip("/").split("/")[:-1]),
-        }
-        for payload, api in (
-            (body, "/api/v2/folders"),
-            (alt, "/api/v2/folders"),
-            (alt, "/api/v1/folders"),
-        ):
-            try:
-                self._req("POST", api, payload)
-                return
-            except RuntimeError as e:
-                msg = str(e).lower()
-                if "already" in msg or "409" in msg or "exist" in msg:
-                    return
-                continue
+        parts = path.strip("/").split("/")
+        # Create each path segment so nested folders exist.
+        parent = "/"
+        for part in parts:
+            body = {
+                "workspaceId": project_id,
+                "environment": environment,
+                "name": part,
+                "path": parent,
+            }
+            for api in ("/api/v1/folders", "/api/v2/folders"):
+                try:
+                    self._req("POST", api, body)
+                    break
+                except RuntimeError as e:
+                    msg = str(e).lower()
+                    if "already" in msg or "409" in msg or "exist" in msg:
+                        break
+                    if "404" in msg or "not found" in msg:
+                        continue
+                    # Keep trying alternate API; last failure is fine if folder exists
+                    continue
+            parent = f"{parent.rstrip('/')}/{part}"
 
     def upsert_secret(
         self,
@@ -171,11 +189,11 @@ class InfisicalClient:
         value: str,
     ) -> None:
         secret_path = path if path.startswith("/") else f"/{path}"
+        quoted = urllib.parse.quote(key)
         create_body = {
             "workspaceId": project_id,
             "environment": environment,
             "secretPath": secret_path,
-            "secretKey": key,
             "secretValue": value,
             "type": "shared",
         }
@@ -186,36 +204,24 @@ class InfisicalClient:
             "secretValue": value,
             "type": "shared",
         }
-        # Try create; on conflict update.
+        # Prefer /raw (server-side encryption). Do not fall back to encrypted-client v3.
+        create_err: Exception | None = None
         try:
-            self._req("POST", "/api/v3/secrets/raw/" + urllib.parse.quote(key), create_body)
+            self._req("POST", f"/api/v3/secrets/raw/{quoted}", create_body)
             return
-        except RuntimeError:
-            pass
-        try:
-            self._req(
-                "PATCH",
-                "/api/v3/secrets/raw/" + urllib.parse.quote(key),
-                update_body,
-            )
-            return
-        except RuntimeError:
-            pass
-        # Fallback create without /raw
-        try:
-            self._req(
-                "POST",
-                f"/api/v3/secrets/{urllib.parse.quote(key)}",
-                {
-                    "workspaceId": project_id,
-                    "environment": environment,
-                    "secretPath": secret_path,
-                    "secretValue": value,
-                    "type": "shared",
-                },
-            )
         except RuntimeError as e:
-            raise RuntimeError(f"upsert {key} @ {secret_path}: {e}") from e
+            create_err = e
+            msg = str(e).lower()
+            if "already" not in msg and "exist" not in msg and "409" not in msg and "400" not in msg:
+                # Still try PATCH in case of conflict-shaped errors
+                pass
+        try:
+            self._req("PATCH", f"/api/v3/secrets/raw/{quoted}", update_body)
+            return
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"upsert {key} @ {secret_path}: create={create_err}; update={e}"
+            ) from e
 
 
 def login_universal(base: str, client_id: str, client_secret: str) -> str:
@@ -319,10 +325,17 @@ def main() -> int:
         )
         return 1
 
+    # Prefer org id from secrets.yml when not passed via env.
+    if not org_id:
+        org_id = str(secrets.get("vault_infisical_org_id") or "")
+
     client = InfisicalClient(base, token)
     existing = client.list_workspaces()
     by_slug = {
-        (w.get("slug") or w.get("name") or "").lower(): w for w in existing
+        (w.get("slug") or "").lower(): w for w in existing if w.get("slug")
+    }
+    by_name = {
+        (w.get("name") or "").lower(): w for w in existing if w.get("name")
     }
 
     created_paths: set[tuple[str, str]] = set()
@@ -330,21 +343,28 @@ def main() -> int:
     for proj in seed_map.get("projects", []):
         slug = proj["slug"]
         name = proj.get("name", slug)
-        ws = by_slug.get(slug.lower())
+        ws = by_slug.get(slug.lower()) or by_name.get(name.lower())
         if not ws:
             print(f"Creating project {slug}…")
-            created = client.create_workspace(name, slug, org_id)
-            # Normalize response
-            if "workspace" in created:
-                ws = created["workspace"]
-            elif "project" in created:
-                ws = created["project"]
-            else:
-                ws = created
+            ws = client.create_workspace(name, slug, org_id)
             by_slug[slug.lower()] = ws
-            print(f"  created {slug}")
+            by_name[name.lower()] = ws
+            print(f"  created {slug} (id={ws.get('id') or ws.get('_id')})")
         else:
+            project_id = ws.get("id") or ws.get("_id")
+            if project_id and (ws.get("slug") or "") != slug:
+                print(f"Normalizing project slug {ws.get('slug')} → {slug}")
+                try:
+                    patched = client._req(
+                        "PATCH",
+                        f"/api/v1/workspace/{project_id}",
+                        {"slug": slug, "name": name},
+                    )
+                    ws = patched.get("workspace") or patched.get("project") or patched
+                except RuntimeError as e:
+                    print(f"  WARN: slug normalize failed: {e}", file=sys.stderr)
             print(f"Project {slug} exists")
+            by_slug[slug.lower()] = ws
 
         project_id = ws.get("id") or ws.get("_id") or ws.get("workspaceId")
         if not project_id:
@@ -379,8 +399,7 @@ def main() -> int:
                 project_id, env_slug, path, key, str(value)
             )
 
-    print("Done. Create a machine identity in Infisical UI for cluster sync")
-    print("and apply platform/secrets InfisicalSecret CRs (see docs).")
+    print("Done. Ensure security/infisical-universal-auth exists for InfisicalSecret CRs.")
     return 0
 
 

@@ -171,14 +171,28 @@ Infisical → **`.25`**, Verdaccio `.106`, …
 
 ---
 
-## 7) Infisical machine identity (day-2 — often still pending)
+## 7) Infisical machine identity (day-2)
 
-1. Infisical UI → machine identity + Universal Auth
-2. `ansible-playbook playbooks/infisical-seed.yml -e @secrets.yml`
-3. `kubectl -n security create secret generic infisical-universal-auth …`
-4. `InfisicalSecret` `hostAPI`: **`http://192.168.68.25:8090/api`** (not `.14` / `.10`)
+Bootstrap a fresh Infisical instance (no users yet):
+
+```bash
+# Creates admin user + org + Instance Admin Identity token
+curl -X POST http://192.168.68.25:8090/api/v1/admin/bootstrap \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@lab.nasraldin.com","password":"<strong>","organization":"Homelab"}'
+```
+
+Then attach Universal Auth + create a client secret (store in `secrets.yml` only):
+
+1. `POST /api/v1/auth/universal-auth/identities/{identityId}` → `clientId`
+2. `POST /api/v1/auth/universal-auth/identities/{identityId}/client-secrets` → `clientSecret`
+3. Put `vault_infisical_ua_client_id` / `vault_infisical_ua_client_secret` (and admin email/password) in `ansible/secrets.yml`
+4. `kubectl -n security create secret generic infisical-universal-auth --from-literal=clientId=… --from-literal=clientSecret=…`
+5. Seed: `INFISICAL_UNIVERSAL_AUTH_CLIENT_ID=… CLIENT_SECRET=… python3 ansible/scripts/seed-infisical.py`
+6. `InfisicalSecret` `hostAPI`: **`http://192.168.68.25:8090/api`** (not `.14` / `.10`); credentialsRef namespace **`security`**
 
 Until universal-auth exists, day-0 `apply-bootstrap-secrets.sh` keeps apps up.
+
 
 ---
 
