@@ -1,0 +1,12 @@
+---
+openclaw_compose_dir: /opt/openclaw
+# Upstream has not published Docker tags for npm patch 2026.7.1-2 (only 2026.7.1 / 2026.7.1-slim).
+# Lab builds a slim overlay from the official base + npm pack so Control UI matches npm latest.
+# Do NOT use :latest / :slim — those currently track 2026.6.34 (downgrade vs 2026.7.1).
+openclaw_base_image: "ghcr.io/openclaw/openclaw:2026.7.1-slim"
+openclaw_npm_version: "2026.7.1-2"
+openclaw_image: "ghcr.io/openclaw/openclaw:2026.7.1-2-slim"
+openclaw_gateway_port: 18789
+openclaw_timezone: UTC
+# Token from secrets.yml (same vault key as NPM #token= bootstrap / k8s Secret).
+openclaw_gateway_token: "{{ vault_openclaw_gateway_token }}"

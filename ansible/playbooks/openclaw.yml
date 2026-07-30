@@ -1,0 +1,47 @@
+---
+# OpenClaw gateway on docker-01 (compose). Builds lab overlay image when upstream
+# GHCR has no tag for the npm correction release. openclaw.lab fronts the k8s LB
+# (cilium_lb_ips.openclaw) via NPM — after build, import the tarball onto workers
+# and bump lab-home-gitops workloads/ai/openclaw image pin.
+- name: OpenClaw on docker-01
+  hosts: docker-01
+  become: true
+  roles:
+    - openclaw
+
+- name: Import OpenClaw overlay onto k8s nodes
+  hosts: k8s_nodes
+  become: true
+  gather_facts: false
+  vars:
+    openclaw_image: "ghcr.io/openclaw/openclaw:2026.7.1-2-slim"
+    openclaw_npm_version: "2026.7.1-2"
+    openclaw_image_tar: "/tmp/openclaw-image-{{ openclaw_npm_version }}/openclaw-image.tar"
+  tasks:
+    - name: Skip import when tarball missing on controller
+      ansible.builtin.stat:
+        path: "{{ openclaw_image_tar }}"
+      register: openclaw_tar
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Copy OpenClaw image tarball to node
+      ansible.builtin.copy:
+        src: "{{ openclaw_image_tar }}"
+        dest: /tmp/openclaw-image.tar
+        mode: "0644"
+      when: openclaw_tar.stat.exists | default(false)
+
+    - name: Import OpenClaw image into containerd (k8s.io)
+      ansible.builtin.command:
+        cmd: ctr -n k8s.io images import /tmp/openclaw-image.tar
+      when: openclaw_tar.stat.exists | default(false)
+      register: openclaw_import
+      changed_when: openclaw_import.rc == 0
+
+    - name: Remove node tarball
+      ansible.builtin.file:
+        path: /tmp/openclaw-image.tar
+        state: absent
+      when: openclaw_tar.stat.exists | default(false)

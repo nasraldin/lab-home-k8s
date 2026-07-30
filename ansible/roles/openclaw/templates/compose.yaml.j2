@@ -1,0 +1,28 @@
+services:
+  openclaw-gateway:
+    image: {{ openclaw_image }}
+    container_name: openclaw
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      TZ: {{ openclaw_timezone }}
+    volumes:
+      - {{ openclaw_compose_dir }}/data:/home/node/.openclaw
+      - {{ openclaw_compose_dir }}/workspace:/home/node/.openclaw/workspace
+      - {{ openclaw_compose_dir }}/auth:/home/node/.config/openclaw
+    ports:
+      - "{{ openclaw_gateway_port }}:18789"
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:18789/healthz', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

@@ -1,0 +1,78 @@
+---
+- name: Require OpenClaw gateway token
+  ansible.builtin.assert:
+    that:
+      - openclaw_gateway_token is defined
+      - openclaw_gateway_token | length >= 16
+    fail_msg: Set vault_openclaw_gateway_token in secrets.yml
+
+- name: Create OpenClaw directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: "0750"
+  loop:
+    - "{{ openclaw_compose_dir }}"
+    - "{{ openclaw_compose_dir }}/data"
+    - "{{ openclaw_compose_dir }}/workspace"
+    - "{{ openclaw_compose_dir }}/auth"
+    - "{{ openclaw_compose_dir }}/build"
+
+- name: Install OpenClaw overlay Dockerfile
+  ansible.builtin.copy:
+    src: Dockerfile
+    dest: "{{ openclaw_compose_dir }}/build/Dockerfile"
+    mode: "0644"
+
+- name: Deploy OpenClaw compose
+  ansible.builtin.template:
+    src: compose.yaml.j2
+    dest: "{{ openclaw_compose_dir }}/compose.yaml"
+    mode: "0640"
+
+- name: Deploy OpenClaw env (token; mode 0600)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ openclaw_compose_dir }}/.env"
+    mode: "0600"
+    owner: root
+    group: root
+
+- name: Build OpenClaw overlay image (npm {{ openclaw_npm_version }} on {{ openclaw_base_image }})
+  ansible.builtin.command:
+    cmd: >-
+      docker build
+      --build-arg OPENCLAW_BASE_IMAGE={{ openclaw_base_image }}
+      --build-arg OPENCLAW_NPM_VERSION={{ openclaw_npm_version }}
+      -t {{ openclaw_image }}
+      {{ openclaw_compose_dir }}/build
+  args:
+    chdir: "{{ openclaw_compose_dir }}/build"
+  register: openclaw_build
+  changed_when: "'Successfully tagged' in openclaw_build.stdout or 'naming to' in openclaw_build.stdout or 'exporting to image' in openclaw_build.stdout"
+
+- name: Start OpenClaw gateway
+  ansible.builtin.command:
+    cmd: docker compose -f {{ openclaw_compose_dir }}/compose.yaml up -d
+  args:
+    chdir: "{{ openclaw_compose_dir }}"
+  register: openclaw_up
+  retries: 5
+  delay: 10
+  until: openclaw_up.rc == 0
+  changed_when: "'Started' in openclaw_up.stderr or 'Created' in openclaw_up.stderr or 'Recreated' in openclaw_up.stderr or 'Running' in openclaw_up.stderr"
+
+- name: Export OpenClaw image for k8s node import
+  ansible.builtin.command:
+    cmd: docker save -o {{ openclaw_compose_dir }}/build/openclaw-image.tar {{ openclaw_image }}
+  when: openclaw_export_for_k8s | default(true) | bool
+  changed_when: true
+
+- name: Fetch OpenClaw image tarball to controller
+  ansible.builtin.fetch:
+    src: "{{ openclaw_compose_dir }}/build/openclaw-image.tar"
+    dest: "/tmp/openclaw-image-{{ openclaw_npm_version }}/"
+    flat: true
+  when: openclaw_export_for_k8s | default(true) | bool

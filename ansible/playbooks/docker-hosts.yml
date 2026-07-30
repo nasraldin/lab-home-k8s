@@ -1,7 +1,6 @@
 ---
 # After restructure: apps + edge + mail + object storage + Dockhand/Portainer on docker-01.
-# OpenClaw may already be present (parallel work) — do not remove it here.
-- name: Docker app host (proxy, mail, tools, Dockhand, Portainer, AIStor)
+- name: Docker app host (proxy, mail, tools, Dockhand, Portainer, AIStor, OpenClaw)
   hosts: docker-01
   become: true
   roles:
@@ -14,3 +13,4 @@
     - aistor
     - dockhand
     - portainer
+    - openclaw
