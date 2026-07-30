@@ -23,10 +23,10 @@ guest_ips:
   k8s-w-02: "192.168.68.19"
   k8s-w-03: "192.168.68.20"
   docker-01: "192.168.68.21"
-  # Dockhand/Portainer publish on docker-01 after cutover (legacy LXC .22/.23 until then)
+  # Dockhand/Portainer publish on docker-01 after cutover (LXC 118/119 destroyed)
   dockhand: "192.168.68.21"
   portainer: "192.168.68.21"
-  ai-01: "192.168.68.24"
+  # ai-01 (VM 120) destroyed 2026-07-30 — Ollama primary is llm-01
   llm-01: "192.168.68.26"
   infisical-01: "192.168.68.25"
 
@@ -182,12 +182,14 @@ technitium_short_zone_records:
   - { name: "portainer", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "dockhand", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "docker", value: "{{ guest_ips['docker-01'] }}" }
-  - { name: "adguard", value: "{{ guest_ips['adguard-01'] }}" }
-  - { name: "dns", value: "{{ guest_ips['dns-01'] }}" }
-  - { name: "technitium", value: "{{ guest_ips['dns-01'] }}" }
-  - { name: "infisical", value: "{{ guest_ips['infisical-01'] }}" }
+  # AdGuard / Technitium / Infisical UIs → NPM on docker-01 (port 80, no :3000/:5380/:8090)
+  - { name: "adguard", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "dns", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "technitium", value: "{{ guest_ips['docker-01'] }}" }
+  - { name: "infisical", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "ollama", value: "{{ guest_ips['llm-01'] }}" }
   - { name: "ai", value: "{{ guest_ips['llm-01'] }}" }
+  - { name: "llm", value: "{{ guest_ips['llm-01'] }}" }
   - { name: "n8n", value: "{{ cilium_lb_ips.n8n }}" }
   # AI/chat UIs → Proxy Manager on docker-01 so http://*.lab works without :ports
   - { name: "librechat", value: "{{ guest_ips['docker-01'] }}" }

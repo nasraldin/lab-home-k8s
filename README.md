@@ -14,21 +14,20 @@ Day-2 platform apps live in [`lab-home-gitops`](https://github.com/nasraldin/lab
 | — | `pve01` | `192.168.68.13` | Proxmox (fixed) |
 | **121** | `adguard-01` | `.10` | AdGuard (DHCP Primary) — 512M/10G LXC |
 | **122** | `dns-01` | `.11` | Technitium authoritative — 512M/10G LXC |
-| **110→124** | `infra-01` | `.14` | Fat VM until drain → **jumpbox LXC** only |
+| **124** | `infra-01` | `.14` | Jumpbox LXC (SSH / operator tools only) |
 | **111** | `gitlab-01` | `.15` | GitLab CE |
 | **112** | `runner-01` | `.16` | Host GitLab Runner |
 | **113** | `k8s-cp-01` | `.17` | Control plane |
 | **114–116** | `k8s-w-01..03` | `.18–.20` | Workers + Longhorn data disks |
 | **117** | `docker-01` | `.21` | **All** Docker apps: NPM, Stalwart, AIStor, Dockhand, Portainer, it-tools, mailpit |
-| **118/119** | dockhand / portainer LXCs | `.22`/`.23` | **Legacy** — retire after apps on docker-01 |
-| **120** | `ai-01` | `.24` | **Standby** (former Ollama VFIO VM — do not delete yet) |
 | **123** | `infisical-01` | `.25` | Infisical + Postgres + Redis |
 | **125** | `llm-01` | `.26` | Ollama + ROCm userspace (`/dev/dri` + `/dev/kfd`) |
+
+Destroyed: VM **110** (fat infra), LXC **118/119** (Dockhand/Portainer), VM **120** (`ai-01`).
 
 API: `192.168.68.17:6443`. Cilium LB pool: `192.168.68.100–119`.
 
 Cutover runbook: [lab-restructure-2026-07-30](../docs/operations/lab-restructure-2026-07-30.md).
-**Live cutover** may be **pending** if `pve01` was down — IaC targets are in tree.
 
 ### Ollama / GPU
 
@@ -37,7 +36,7 @@ Inference path: **clients → LiteLLM (`.108`) → Ollama on `llm-01` (`.26:1143
 1. Host loads **`amdgpu`** (no VFIO bind): `scripts/host-igpu-for-lxc.sh` then **reboot**.
 2. Confirm: `lspci -nnk -s c6:00.0` → `amdgpu`; `/dev/dri/renderD128` + `/dev/kfd`.
 3. `terraform apply` (CT 125) → `ansible-playbook playbooks/ollama.yml`.
-4. Verify GPU via `ollama ps` before decommissioning `ai-01`.
+4. `ai-01` (VM 120) removed after GPU verified on `llm-01`.
 
 Docs: [ollama-llm-01](../docs/operations/ollama-llm-01.md).
 
