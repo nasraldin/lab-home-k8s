@@ -8,9 +8,6 @@
 - name: Docker app host (proxy, mail, tools, Dockhand, Portainer, AIStor)
   ansible.builtin.import_playbook: docker-hosts.yml
 
-- name: Jumpbox (after VM→LXC cutover)
-  ansible.builtin.import_playbook: infra.yml
-
 - name: Register Dockhand environments (API) on docker-01
   hosts: localhost
   gather_facts: false
@@ -41,5 +38,3 @@
 
 - name: Kubernetes cluster
   ansible.builtin.import_playbook: k8s.yml
-
-

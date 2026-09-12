@@ -4,29 +4,28 @@ Record of failures hit during the home-lab factory reset and the code/runbook
 fixes applied so the next `terraform apply` → `make bring-up` path does not
 hang or fail the same way.
 
-**Topology updates (2026-07-30):** DNS → `adguard-01`/`.10` + `dns-01`/`.11`;
-Infisical → `infisical-01`/`.25`; Docker apps → `docker-01`/`.21`; Ollama →
-`llm-01`/`.26`. See [lab-restructure-2026-07-30](../../../docs/operations/lab-restructure-2026-07-30.md).
+**Topology updates (2026-07-30 / 2026-09-12):** DNS → `adguard-01`/`.14` +
+`dns-01`/`.11`; Infisical → `infisical-01`/`.25`; Docker apps → `docker-01`/`.21`.
+`ssh-01` and `llm-01` **destroyed**. See
+[lab-restructure-2026-07-30](../../../docs/operations/lab-restructure-2026-07-30.md).
 Historical issue text may still mention “Infisical on infra-01” — treat those as
 pre-restructure unless noted.
 
 ## Canonical IP map (do not regress)
 
-| Guest | IP |
-| ----- | -- |
-| `pve01` | `192.168.68.13` (**fixed**) |
-| `adguard-01` / `dns-01` | `.10` / `.11` |
-| `infra-01` | `.14` (jumpbox after drain) |
-| `gitlab-01` | `.15` |
-| `runner-01` | `.16` |
-| `k8s-cp-01` | `.17` |
-| `k8s-w-01..03` | `.18–.20` |
-| `docker-01` | `.21` |
-| dockhand / portainer LXCs (legacy) | `.22` / `.23` |
-| `ai-01` (standby) | `.24` |
-| `infisical-01` | `.25` |
-| `llm-01` | `.26` |
-| Cilium LB | `.100–.119` |
+| Guest                              | IP                          |
+| ---------------------------------- | --------------------------- |
+| `pve01`                            | `192.168.68.13` (**fixed**) |
+| `adguard-01` / `dns-01`            | `.10` / `.11`               |
+| `gitlab-01`                        | `.15`                       |
+| `runner-01`                        | `.16`                       |
+| `k8s-cp-01`                        | `.17`                       |
+| `k8s-w-01..03`                     | `.18–.20`                   |
+| `docker-01`                        | `.21`                       |
+| dockhand / portainer LXCs (legacy) | `.22` / `.23`               |
+| `ai-01` (standby)                  | `.24`                       |
+| `infisical-01`                     | `.25`                       |
+| Cilium LB                          | `.100–.119`                 |
 
 ## Issues and fixes
 
@@ -89,10 +88,8 @@ pre-restructure unless noted.
 
 ### 10. GPU / Ollama (AI)
 
-- **Current path:** privileged LXC `llm-01` with host `amdgpu` device passthrough
-  — [ollama-llm-01.md](../../../docs/operations/ollama-llm-01.md).
-- **Standby:** `ai-01` VFIO VM kept until `ollama ps` shows GPU on llm-01.
-- Historical: PCI mapping needed `subsystem-id`; VFIO bind on `ai-01`.
+- **Current path:** none — `llm-01` and `ai-01` destroyed (2026-09-12 / 2026-07-30).
+- Historical: [ollama-llm-01.md](../../../docs/operations/ollama-llm-01.md).
 
 ### 11. Browser forces `https://gitlab.lab` while `/users/sign_in` works
 
@@ -162,6 +159,6 @@ make verify
 
 - `kubectl get nodes` → 4 Ready
 - `./scripts/verify.sh` → OK
-- Infisical (`.25`) / NPM (docker-01) / Ollama (`llm-01`) / GitLab / runner → healthy on LAN
+- Infisical (`.25`) / NPM (docker-01) / GitLab / runner → healthy on LAN
 - Argo `root` Application reaches GitOps over LAN URL
 - Namespaces match taxonomy (`ai-tools`, `gitops`, …) — unused per-app NS pruned when empty

@@ -143,7 +143,6 @@ variable "vms" {
   type = map(object({
     image              = string # key into var.cloud_images
     pool               = optional(string)
-    tags               = optional(list(string), [])
     vm_id              = optional(number)
     mac_address        = optional(string)
     cores              = optional(number, 2)
@@ -190,7 +189,6 @@ variable "containers" {
   type = map(object({
     template     = string # key into var.lxc_templates
     pool         = optional(string)
-    tags         = optional(list(string), [])
     vm_id        = optional(number)
     cores        = optional(number, 1)
     memory       = optional(number, 1024) # MB
@@ -199,7 +197,6 @@ variable "containers" {
     unprivileged = optional(bool, true)
     os_type      = optional(string, "debian") # proxmox CT OS type: debian, ubuntu, …
     # Host character devices for GPU LXC (paths must exist on node at apply).
-    # Example: /dev/dri/renderD128, /dev/kfd — see docs/operations/ollama-llm-01.md
     device_passthrough = optional(list(object({
       path = string
       uid  = optional(number)

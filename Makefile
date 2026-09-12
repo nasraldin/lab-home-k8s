@@ -1,4 +1,4 @@
-.PHONY: tf-init tf-adopt tf-plan tf-apply ansible ansible-infra ansible-gitlab ansible-docker ansible-k8s \
+.PHONY: tf-init tf-adopt tf-plan tf-apply ansible ansible-gitlab ansible-docker ansible-k8s \
 	seed-gitops bootstrap-secrets wait-longhorn bootstrap bring-up verify docs
 
 # Clean reset order (see docs/runbook/e2e-reset-checklist.md):
@@ -23,9 +23,6 @@ tf-apply:
 
 ansible:
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/site.yml -e @secrets.yml
-
-ansible-infra:
-	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/infra.yml -e @secrets.yml
 
 ansible-gitlab:
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/gitlab.yml -e @secrets.yml

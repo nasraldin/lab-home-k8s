@@ -1,5 +1,4 @@
-# Single-lab inventory — ID = last octet in 1xx range (aligned 2026-07-30).
-# Jumpbox is ssh-01 (.12); AdGuard starts at .14; PVE fixed at .13.
+# VMIDs packed 111–120. IPs unchanged (PVE stays .13). No jumpbox / no LLM guest.
 
 proxmox_endpoint = "https://192.168.68.13:8006/"
 node_name        = "pve01"
@@ -31,17 +30,12 @@ lxc_templates = {
     url       = "http://download.proxmox.com/images/system/debian-13-standard_13.1-2_amd64.tar.zst"
     file_name = "debian-13-standard_13.1-2_amd64.tar.zst"
   }
-  "ubuntu-24.04" = {
-    url       = "http://download.proxmox.com/images/system/ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
-    file_name = "ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
-  }
 }
 
 vms = {
   gitlab-01 = {
     image         = "debian-13"
-    tags          = ["gitlab", "core", "debian"]
-    vm_id         = 115
+    vm_id         = 113
     cores         = 4
     memory        = 12288
     disk_gb       = 150
@@ -50,8 +44,7 @@ vms = {
   }
   runner-01 = {
     image         = "debian-13"
-    tags          = ["ci", "core", "debian"]
-    vm_id         = 116
+    vm_id         = 114
     cores         = 2
     memory        = 4096
     disk_gb       = 40
@@ -60,8 +53,7 @@ vms = {
   }
   k8s-cp-01 = {
     image         = "debian-13"
-    tags          = ["k8s", "control-plane", "debian"]
-    vm_id         = 117
+    vm_id         = 115
     cores         = 2
     memory        = 6144
     disk_gb       = 40
@@ -72,8 +64,7 @@ vms = {
   # raw cluster capacity on data01 (ZFS thin). Grow later with: qm resize <vmid> scsi1 Ng
   k8s-w-01 = {
     image         = "debian-13"
-    tags          = ["k8s", "worker", "debian"]
-    vm_id         = 118
+    vm_id         = 116
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -83,8 +74,7 @@ vms = {
   }
   k8s-w-02 = {
     image         = "debian-13"
-    tags          = ["k8s", "worker", "debian"]
-    vm_id         = 119
+    vm_id         = 117
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -94,8 +84,7 @@ vms = {
   }
   k8s-w-03 = {
     image         = "debian-13"
-    tags          = ["k8s", "worker", "debian"]
-    vm_id         = 120
+    vm_id         = 118
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -105,34 +94,22 @@ vms = {
   }
   docker-01 = {
     image         = "debian-13"
-    tags          = ["docker", "apps", "core", "debian"]
-    vm_id         = 121
+    vm_id         = 119
     cores         = 2
     memory        = 8192
     disk_gb       = 120
     ip            = "192.168.68.21/22"
     startup_order = 10
   }
-  # ai-01 (VM 120) destroyed 2026-07-30 — Ollama primary is LXC llm-01 (.26).
+  # Destroyed: ai-01, ssh-01, llm-01. IDs compacted to 111–120 on 2026-09-12.
 }
 
-# Kept for rollback to VFIO VM path; llm-01 uses LXC device passthrough instead.
-# Host must NOT bind this GPU to vfio-pci while llm-01 runs (amdgpu on host).
-pci_mappings = {
-  ai-igpu = {
-    id            = "1002:150e" # verify: lspci -nn -s c6:00.0
-    subsystem_id  = "1f4c:b020"
-    path          = "0000:c6:00.0"
-    iommu_group   = 22
-    comment       = "Radeon 890M iGPU — reserved mapping; LXC llm-01 is active path"
-  }
-}
+pci_mappings = {}
 
 containers = {
-  # Authoritative DNS — ID matches last octet (.11)
+  # Authoritative DNS
   dns-01 = {
     template     = "debian-13"
-    tags         = ["dns", "technitium", "core"]
     vm_id        = 111
     cores        = 1
     memory       = 512
@@ -141,23 +118,10 @@ containers = {
     unprivileged = true
     os_type      = "debian"
   }
-  # Jumpbox — SSH + operator tools only (formerly infra-01)
-  ssh-01 = {
-    template     = "debian-13"
-    tags         = ["ssh", "jumpbox", "core"]
-    vm_id        = 112
-    cores        = 2
-    memory       = 2048
-    disk_gb      = 20
-    ip           = "192.168.68.12/22"
-    unprivileged = true
-    os_type      = "debian"
-  }
-  # Recursive DNS + filtering — AdGuard starts at .14 (PVE is .13)
+  # Recursive DNS + filtering — IP stays .14 (PVE is .13)
   adguard-01 = {
     template     = "debian-13"
-    tags         = ["dns", "adguard", "core"]
-    vm_id        = 114
+    vm_id        = 112
     cores        = 1
     memory       = 512
     disk_gb      = 10
@@ -168,33 +132,13 @@ containers = {
   # Infisical + local Postgres/Redis (official Compose; nesting for Docker)
   infisical-01 = {
     template     = "debian-13"
-    tags         = ["infisical", "secrets", "core"]
-    vm_id        = 125
+    vm_id        = 120
     cores        = 2
     memory       = 4096
     disk_gb      = 40
     ip           = "192.168.68.25/22"
     unprivileged = true
     os_type      = "debian"
-  }
-  # Ollama + ROCm userspace — privileged for /dev/dri + /dev/kfd.
-  # Host prep: scripts/host-igpu-for-lxc.sh then reboot (no live VFIO→amdgpu bind).
-  # Docs: ../../docs/operations/ollama-llm-01.md
-  llm-01 = {
-    template     = "ubuntu-24.04"
-    tags         = ["ai", "ollama", "gpu", "llm"]
-    vm_id        = 126
-    cores        = 8
-    memory       = 24576
-    disk_gb      = 100
-    ip           = "192.168.68.26/22"
-    unprivileged = false
-    os_type      = "ubuntu"
-    device_passthrough = [
-      { path = "/dev/dri/renderD128", gid = 44, mode = "0666" },
-      { path = "/dev/dri/card1", gid = 44, mode = "0666" },
-      { path = "/dev/kfd", gid = 993, mode = "0666" },
-    ]
   }
 }
 

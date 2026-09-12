@@ -3,7 +3,7 @@ resource "proxmox_virtual_environment_vm" "this" {
   node_name = var.node_name
   vm_id     = var.vm_id
   pool_id   = var.pool_id
-  tags      = var.tags
+  tags      = []
 
   # Proxmox VE 9 lab standard — match terraform-lab / hub vm-best-practices
   bios          = "ovmf"

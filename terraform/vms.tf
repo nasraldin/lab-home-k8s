@@ -6,7 +6,6 @@ module "vm" {
   node_name = var.node_name
   vm_id     = each.value.vm_id
   pool_id   = each.value.pool
-  tags      = each.value.tags
 
   cores          = each.value.cores
   cpu_limit      = each.value.cpu_limit

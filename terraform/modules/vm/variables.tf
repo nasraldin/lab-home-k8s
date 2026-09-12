@@ -19,11 +19,6 @@ variable "pool_id" {
   default     = null
 }
 
-variable "tags" {
-  type    = list(string)
-  default = []
-}
-
 variable "cores" {
   type    = number
   default = 2

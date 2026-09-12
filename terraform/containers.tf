@@ -5,7 +5,7 @@ resource "proxmox_virtual_environment_container" "ct" {
   node_name    = var.node_name
   vm_id        = each.value.vm_id
   pool_id      = each.value.pool
-  tags         = each.value.tags
+  tags         = []
   unprivileged = each.value.unprivileged
 
   started       = true

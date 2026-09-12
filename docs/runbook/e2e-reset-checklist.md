@@ -7,22 +7,20 @@ Canonical inventory: [lab-home-inventory.md](../../../docs/operations/lab-home-i
 Restructure: [lab-restructure-2026-07-30.md](../../../docs/operations/lab-restructure-2026-07-30.md).
 Do **not** move pve01 off `.13`.
 
-| Guest | IP |
-| ----- | -- |
-| pve01 | `.13` |
-| dns-01 (Technitium) | `.11` |
-| ssh-01 (jumpbox) | `.12` |
-| adguard-01 (DNS for LAN/Mac) | `.14` |
-| gitlab-01 | `.15` |
-| runner-01 | `.16` |
-| k8s-cp-01 (**6 GiB**) | `.17` |
-| k8s-w-01..03 | `.18–.20` |
-| docker-01 | `.21` |
-| infisical-01 | `.25` |
-| llm-01 | `.26` |
-| Cilium LB pool | `.100–.119` |
+| Guest                        | IP          |
+| ---------------------------- | ----------- |
+| pve01                        | `.13`       |
+| dns-01 (Technitium)          | `.11`       |
+| adguard-01 (DNS for LAN/Mac) | `.14`       |
+| gitlab-01                    | `.15`       |
+| runner-01                    | `.16`       |
+| k8s-cp-01 (**6 GiB**)        | `.17`       |
+| k8s-w-01..03                 | `.18–.20`   |
+| docker-01                    | `.21`       |
+| infisical-01                 | `.25`       |
+| Cilium LB pool               | `.100–.119` |
 
-**Destroyed (do not recreate):** VM 110 fat infra, LXC 118/119 Dockhand/Portainer, VM 120 `ai-01`, old **infra-01** (apps moved; jumpbox is **ssh-01** `.12`).
+**Destroyed (do not recreate):** VM 110 fat infra, LXC 118/119 Dockhand/Portainer, VM 120 `ai-01`, CT **112** `ssh-01`, CT **126** `llm-01`.
 
 See also: [bring-up-issues-2026-07.md](./bring-up-issues-2026-07.md) · `CREDENTIALS.md` (gitignored pointer map)
 
@@ -51,13 +49,10 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-**llm-01 note:** GPU passthrough often needs `root@pam` via
-`terraform/scripts/pct-create-restructure-lxcs.sh` then `terraform import`.
-
 **Verify**
 
-- [ ] Guests running (VMs + CTs for DNS / ssh-01 / Infisical / llm-01)
-- [ ] `ping` `.11` `.12` `.14`–`.21` `.25` `.26`
+- [ ] Guests running (VMs + CTs for DNS / Infisical)
+- [ ] `ping` `.11` `.14`–`.21` `.25`
 - [ ] `pve01` still `.13` with default route via `.1`
 - [ ] Mac `/etc/resolver/lab` → `.14` (`ansible-lab/scripts/mac-resolver-lab.sh`)
 
@@ -68,25 +63,23 @@ terraform apply tfplan
 ```bash
 cd lab-home-k8s
 # Documented order (not only `make ansible`):
-# dns → restore Mac DNS to AdGuard .14 → infisical → docker-hosts → infra (ssh-01)
-# → gitlab → k8s → ollama → openclaw (overlay build + k8s import)
+# dns → restore Mac DNS to AdGuard .14 → infisical → docker-hosts
+# → gitlab → k8s → openclaw (overlay build + k8s import)
 make ansible
 ```
 
 **What this must leave healthy**
 
-| Host | Must be up |
-| ---- | ---------- |
-| adguard-01 | AdGuard `:53` / UI `:3000` (LAN/Mac DNS) |
-| dns-01 | Technitium `:5380` (auth for `lab` / `dev.test`) |
-| ssh-01 | Jumpbox / SSH bastion (no app ports) |
-| gitlab-01 | HTTP `:80`, registry `:5050`, `external_url http://gitlab.lab` |
-| runner-01 | Host runner registered (or ready for token) |
-| k8s nodes | Registered (Ready after Cilium) |
-| k8s workers | Longhorn disk mounted at `/var/lib/longhorn` |
-| docker-01 | NPM `:80/:443/:81`, Stalwart, AIStor `:9000/:9001`, Dockhand `:3000`, Portainer `:9443`, it-tools, mailpit, OpenClaw compose |
-| infisical-01 | Infisical `:8090` + local Postgres/Redis |
-| llm-01 | Ollama `:11434` (GPU after host amdgpu prep) |
+| Host         | Must be up                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| adguard-01   | AdGuard `:53` / UI `:3000` (LAN/Mac DNS)                                                                                     |
+| dns-01       | Technitium `:5380` (auth for `lab` / `dev.test`)                                                                             |
+| gitlab-01    | HTTP `:80`, registry `:5050`, `external_url http://gitlab.lab`                                                               |
+| runner-01    | Host runner registered (or ready for token)                                                                                  |
+| k8s nodes    | Registered (Ready after Cilium)                                                                                              |
+| k8s workers  | Longhorn disk mounted at `/var/lib/longhorn`                                                                                 |
+| docker-01    | NPM `:80/:443/:81`, Stalwart, AIStor `:9000/:9001`, Dockhand `:3000`, Portainer `:9443`, it-tools, mailpit, OpenClaw compose |
+| infisical-01 | Infisical `:8090` + local Postgres/Redis                                                                                     |
 
 **Verify**
 
@@ -94,7 +87,6 @@ make ansible
 dig @192.168.68.14 gitlab.lab +short    # .15
 curl -sI http://gitlab.lab/ | head
 curl -s http://192.168.68.25:8090/api/status
-curl -s http://192.168.68.26:11434/api/tags
 ssh nasr@192.168.68.18 'findmnt /var/lib/longhorn && df -h /var/lib/longhorn'
 ```
 
@@ -142,34 +134,34 @@ kubectl -n gitops get pods
 
 ## 5) GitOps sync waves
 
-| Wave | What | Namespace |
-| ---- | ---- | --------- |
-| 0 | Canonical namespaces | — |
-| 10–25 | cert-manager, ESO, Infisical op, Kyverno, KEDA | `security` / `gitops` |
-| 30 | Longhorn | `storage` |
-| 40 | CNPG + DB operators (incl. MariaDB **CRDs** chart) | `database` |
-| 42–46 | Keycloak, Sonar (interim) | `apps` |
-| | Harbor, Verdaccio | `artifacts` |
-| 50+ | Observability | `observability` |
-| | GitLab Runner + KEDA ScaledObject | `gitops` |
-| | LiteLLM, LibreChat, n8n, OpenClaw | `ai-tools` |
+| Wave  | What                                               | Namespace             |
+| ----- | -------------------------------------------------- | --------------------- |
+| 0     | Canonical namespaces                               | —                     |
+| 10–25 | cert-manager, ESO, Infisical op, Kyverno, KEDA     | `security` / `gitops` |
+| 30    | Longhorn                                           | `storage`             |
+| 40    | CNPG + DB operators (incl. MariaDB **CRDs** chart) | `database`            |
+| 42–46 | Keycloak, Sonar (interim)                          | `apps`                |
+|       | Harbor, Verdaccio                                  | `artifacts`           |
+| 50+   | Observability                                      | `observability`       |
+|       | GitLab Runner + KEDA ScaledObject                  | `gitops`              |
+|       | LiteLLM, LibreChat, n8n, OpenClaw                  | `ai-tools`            |
 
 **Cilium LB IPs (must stay unique)**
 
-| IP | Owner |
-| -- | ----- |
-| `.100` | Argo CD |
-| `.101` | Harbor |
-| `.102` | Grafana |
-| `.103` | Keycloak |
-| `.104` | Longhorn UI |
-| `.105` | LibreChat |
+| IP     | Owner                 |
+| ------ | --------------------- |
+| `.100` | Argo CD               |
+| `.101` | Harbor                |
+| `.102` | Grafana               |
+| `.103` | Keycloak              |
+| `.104` | Longhorn UI           |
+| `.105` | LibreChat             |
 | `.106` | Verdaccio (`npm.lab`) |
-| `.107` | n8n |
-| `.108` | LiteLLM |
-| `.110` | OTel collector |
-| `.112` | Sonar |
-| `.113` | OpenClaw |
+| `.107` | n8n                   |
+| `.108` | LiteLLM               |
+| `.110` | OTel collector        |
+| `.112` | Sonar                 |
+| `.113` | OpenClaw              |
 
 ---
 
@@ -220,22 +212,20 @@ Until universal-auth exists, day-0 `apply-bootstrap-secrets.sh` keeps apps up.
 - [ ] `http://infisical.lab` or `:8090` on `.25` (seeded + UA secret)
 - [ ] `http://webmail.lab` / `http://inbox.lab` (Bulwark; same-origin JMAP)
 - [ ] `http://openclaw.lab` → 302 `/__oc_boot` → Control UI
-- [ ] `http://ollama.lab:11434/api/tags` → `.26`
 - [ ] `kubectl -n database get cluster` · `kubectl -n ai-tools get pods`
 - [ ] GitLab runner in `gitops` online (or host runner on `.16`)
 
 ## 10) If something is wrong
 
-| Symptom | Likely cause | Fix |
-| ------- | ------------ | --- |
-| InfisicalSecret failures | Wrong `hostAPI` or no universal-auth | `.25`; bootstrap + UA secret |
-| MariaDB operator stuck | Missing CRDs chart | `platform/data` `mariadb-operator-crds` |
-| LibreChat PVC/update issues | RollingUpdate on single PVC | Deployment `strategy: Recreate` |
-| Kyverno ImagePullBackOff cleanup Job | bitnami/kubectl gone | `policyReportsCleanup.enabled: false` + `registry.k8s.io/kubectl` |
-| Runner cannot reach GitLab | Public URL / DNS | LAN IP + `hostAliases` — [gitlab-runner-k8s.md](../../../docs/operations/gitlab-runner-k8s.md) |
-| Ollama 100% CPU | VFIO still bound / no IGPU env | [ollama-llm-01.md](../../../docs/operations/ollama-llm-01.md) |
-| OpenClaw exit 78 / crash-loop | Missing `gateway.mode=local` | Seed `openclaw.json` via openclaw role |
-| OpenClaw ImagePullBackOff | Lab overlay not imported | Re-run `playbooks/openclaw.yml` import |
-| Hosts unreachable | pve01 outage | Recover PVE; cutover is staged — do not invent live status |
+| Symptom                              | Likely cause                         | Fix                                                                                            |
+| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| InfisicalSecret failures             | Wrong `hostAPI` or no universal-auth | `.25`; bootstrap + UA secret                                                                   |
+| MariaDB operator stuck               | Missing CRDs chart                   | `platform/data` `mariadb-operator-crds`                                                        |
+| LibreChat PVC/update issues          | RollingUpdate on single PVC          | Deployment `strategy: Recreate`                                                                |
+| Kyverno ImagePullBackOff cleanup Job | bitnami/kubectl gone                 | `policyReportsCleanup.enabled: false` + `registry.k8s.io/kubectl`                              |
+| Runner cannot reach GitLab           | Public URL / DNS                     | LAN IP + `hostAliases` — [gitlab-runner-k8s.md](../../../docs/operations/gitlab-runner-k8s.md) |
+| OpenClaw exit 78 / crash-loop        | Missing `gateway.mode=local`         | Seed `openclaw.json` via openclaw role                                                         |
+| OpenClaw ImagePullBackOff            | Lab overlay not imported             | Re-run `playbooks/openclaw.yml` import                                                         |
+| Hosts unreachable                    | pve01 outage                         | Recover PVE; cutover is staged — do not invent live status                                     |
 
 Update `CREDENTIALS.md` after a successful bring-up if passwords rotated.

@@ -24,13 +24,13 @@ stages:
 variables:
   TF_TARGET_GUESTS:
     value: ""
-    description: "Comma-separated VM keys (e.g. ssh-01,docker-01)"
+    description: "Comma-separated VM keys (e.g. docker-01,gitlab-01)"
   ANSIBLE_PLAYBOOK:
-    value: "playbooks/infra.yml"
+    value: "playbooks/dns.yml"
     description: "Ansible playbook path under ansible/"
   ANSIBLE_LIMIT:
     value: ""
-    description: "Inventory limit (e.g. ssh-01)"
+    description: "Inventory limit (e.g. docker-01)"
 
 detect-services:
   stage: .pre

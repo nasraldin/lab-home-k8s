@@ -15,7 +15,6 @@ technitium_ip: "192.168.68.11"
 guest_ips:
   adguard-01: "192.168.68.14"
   dns-01: "192.168.68.11"
-  ssh-01: "192.168.68.12"
   gitlab-01: "192.168.68.15"
   runner-01: "192.168.68.16"
   k8s-cp-01: "192.168.68.17"
@@ -26,8 +25,6 @@ guest_ips:
   # Dockhand/Portainer publish on docker-01 after cutover (LXC 118/119 destroyed)
   dockhand: "192.168.68.21"
   portainer: "192.168.68.21"
-  # ai-01 (VM 120) destroyed 2026-07-30 — Ollama primary is llm-01
-  llm-01: "192.168.68.26"
   infisical-01: "192.168.68.25"
 
 # Public HTTPS hostnames (Cloudflare proxied CNAME → tunnel)
@@ -93,7 +90,6 @@ cilium_lb_ips:
   sonarqube: "192.168.68.112"
   openclaw: "192.168.68.113"
 
-
 # Short LAN URLs (*.lab) — HTTP direct to backends; public *.nasraldin.com unchanged (Cloudflare).
 lab_urls:
   proxmox: "https://pve.lab:8006"
@@ -119,8 +115,6 @@ lab_urls:
   adguard: "http://adguard.lab"
   dns: "http://dns.lab"
   infisical: "http://infisical.lab"
-  ollama: "http://ollama.lab:11434"
-  ai: "http://ai.lab:11434"
   kube_api: "https://kube.lab:6443"
   n8n: "http://n8n.lab"
   librechat: "http://chat.lab"
@@ -129,13 +123,11 @@ lab_urls:
   verdaccio: "http://npm.lab"
   sonar: "http://sonar.lab"
 
-
 # Internal lab.nasraldin.com records (Technitium authoritative zone)
 technitium_zone_records:
   - { name: "pve01", value: "{{ pve_ip }}" }
   - { name: "adguard-01", value: "{{ guest_ips['adguard-01'] }}" }
   - { name: "dns-01", value: "{{ guest_ips['dns-01'] }}" }
-  - { name: "ssh-01", value: "{{ guest_ips['ssh-01'] }}" }
   - { name: "gitlab-01", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "runner-01", value: "{{ guest_ips['runner-01'] }}" }
   - { name: "k8s-cp-01", value: "{{ guest_ips['k8s-cp-01'] }}" }
@@ -160,8 +152,6 @@ technitium_zone_records:
 technitium_short_zone_records:
   - { name: "pve", value: "{{ pve_ip }}" }
   - { name: "proxmox", value: "{{ pve_ip }}" }
-  - { name: "ssh", value: "{{ guest_ips['ssh-01'] }}" }
-  - { name: "ssh-01", value: "{{ guest_ips['ssh-01'] }}" }
   - { name: "gitlab", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "registry", value: "{{ guest_ips['gitlab-01'] }}" }
   - { name: "runner", value: "{{ guest_ips['runner-01'] }}" }
@@ -189,9 +179,6 @@ technitium_short_zone_records:
   - { name: "dns", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "technitium", value: "{{ guest_ips['docker-01'] }}" }
   - { name: "infisical", value: "{{ guest_ips['docker-01'] }}" }
-  - { name: "ollama", value: "{{ guest_ips['llm-01'] }}" }
-  - { name: "ai", value: "{{ guest_ips['llm-01'] }}" }
-  - { name: "llm", value: "{{ guest_ips['llm-01'] }}" }
   - { name: "n8n", value: "{{ cilium_lb_ips.n8n }}" }
   # AI/chat UIs → Proxy Manager on docker-01 so http://*.lab works without :ports
   - { name: "librechat", value: "{{ guest_ips['docker-01'] }}" }
@@ -230,7 +217,7 @@ lab_dns: "{{ adguard_ip }}"
 cilium_lb_pool_cidrs:
   - "192.168.68.100-192.168.68.119"
 # Do NOT set ansible_user here — it overrides LXC groups that need root
-# (dns-01, adguard-01, infisical-01, ssh-01, llm-01). Per-group/host
+# (dns-01, adguard-01, infisical-01). Per-group/host
 # ansible_user lives in inventory/hosts.yml and host_vars/*.yml.
 
 adguard_admin_user: admin

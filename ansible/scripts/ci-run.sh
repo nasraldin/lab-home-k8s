@@ -2,29 +2,28 @@
 # Ansible playbook wrapper for GitLab CI (and local).
 #
 # Env:
-#   ANSIBLE_PLAYBOOK   Path under repo root (default: playbooks/infra.yml)
+#   ANSIBLE_PLAYBOOK   Path under repo root (default: playbooks/dns.yml)
 #   ANSIBLE_LIMIT      Inventory host or group (empty = playbook hosts)
 #   ANSIBLE_SECRETS    Path to secrets file (default: secrets.yml if present)
 #   ANSIBLE_CHECK      true → --check (dry-run)
 #
 # Examples:
-#   ANSIBLE_PLAYBOOK=playbooks/infra.yml ANSIBLE_LIMIT=infra01 ./scripts/ci-run.sh
 #   ANSIBLE_PLAYBOOK=playbooks/dns.yml ANSIBLE_LIMIT=adguard-01 ./scripts/ci-run.sh
-#   ANSIBLE_PLAYBOOK=playbooks/object-storage.yml ANSIBLE_LIMIT=vault-01 ./scripts/ci-run.sh
+#   ANSIBLE_PLAYBOOK=playbooks/docker-hosts.yml ANSIBLE_LIMIT=docker-01 ./scripts/ci-run.sh
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
-ANSIBLE_PLAYBOOK="${ANSIBLE_PLAYBOOK:-playbooks/infra.yml}"
+ANSIBLE_PLAYBOOK="${ANSIBLE_PLAYBOOK:-playbooks/dns.yml}"
 ANSIBLE_LIMIT="${ANSIBLE_LIMIT:-}"
 ANSIBLE_SECRETS="${ANSIBLE_SECRETS:-}"
 ANSIBLE_CHECK="${ANSIBLE_CHECK:-false}"
 
 # GitLab CI circular vars (ANSIBLE_LIMIT: $ANSIBLE_LIMIT) leave literal "$NAME".
 if [[ "${ANSIBLE_PLAYBOOK}" == *'$'* ]]; then
-  ANSIBLE_PLAYBOOK="playbooks/infra.yml"
+  ANSIBLE_PLAYBOOK="playbooks/dns.yml"
 fi
 if [[ "${ANSIBLE_LIMIT}" == *'$'* ]]; then
   ANSIBLE_LIMIT=""
