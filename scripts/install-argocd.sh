@@ -9,7 +9,7 @@ need_cmd helm
 
 # Prefer LAN GitLab during bring-up (public Tunnel may return 530 before CF is healthy).
 # Override with GITOPS_REPO=https://gitlab.nasraldin.com/homelab/lab-home-gitops.git when Tunnel is up.
-GITOPS_REPO="${GITOPS_REPO:-http://192.168.68.15/homelab/lab-home-gitops.git}"
+GITOPS_REPO="${GITOPS_REPO:-http://192.168.68.25/homelab/lab-home-gitops.git}"
 ARGO_NS=argocd
 REGISTER_REPO="${REGISTER_REPO:-true}"
 ARGO_HOSTNAME="${ARGO_HOSTNAME:-argo.nasraldin.com}"

@@ -3,7 +3,7 @@
 # Requires: curl, git, GITLAB_TOKEN (PAT with api + write_repository).
 set -euo pipefail
 
-GITLAB_URL="${GITLAB_URL:-http://192.168.68.15}"
+GITLAB_URL="${GITLAB_URL:-http://192.168.68.25}"
 GITLAB_TOKEN="${GITLAB_TOKEN:?set GITLAB_TOKEN to a GitLab PAT with api,write_repository}"
 GROUP_PATH="${GROUP_PATH:-homelab}"
 PROJECT_PATH="${PROJECT_PATH:-lab-home-gitops}"

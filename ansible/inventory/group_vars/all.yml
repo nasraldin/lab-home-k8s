@@ -11,11 +11,11 @@ pve_ip: "192.168.68.13" # Proxmox hypervisor (not a guest VM)
 adguard_ip: "192.168.68.14"
 technitium_ip: "192.168.68.11"
 
-# Guest LAN addresses — ID = last octet in 1xx (aligned 2026-07-30)
+# Guest LAN addresses — Infisical .15 / GitLab .25 (PVE .13, AdGuard .14)
 guest_ips:
   adguard-01: "192.168.68.14"
   dns-01: "192.168.68.11"
-  gitlab-01: "192.168.68.15"
+  gitlab-01: "192.168.68.25"
   runner-01: "192.168.68.16"
   k8s-cp-01: "192.168.68.17"
   k8s-w-01: "192.168.68.18"
@@ -25,7 +25,7 @@ guest_ips:
   # Dockhand/Portainer publish on docker-01 after cutover (LXC 118/119 destroyed)
   dockhand: "192.168.68.21"
   portainer: "192.168.68.21"
-  infisical-01: "192.168.68.25"
+  infisical-01: "192.168.68.15"
 
 # Public HTTPS hostnames (Cloudflare proxied CNAME → tunnel)
 public_urls:

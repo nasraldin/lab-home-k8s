@@ -8,21 +8,21 @@ Day-2 platform apps live in [`lab-home-gitops`](https://github.com/nasraldin/lab
 [`docs/operations/lab-home-inventory.md`](../docs/operations/lab-home-inventory.md)
 
 Secrets pointer map (gitignored, **no live passwords**): `lab-home-k8s/CREDENTIALS.md`.
-Canonical secret store: `ansible/secrets.yml` + Infisical on `.25`.
+Canonical secret store: `ansible/secrets.yml` + Infisical on `.15`.
 
-## Topology (live — VMIDs 111–120, IPs unchanged)
+## Topology (live — VMIDs 111–120)
 
 | VMID/CTID   | Host           | IP              | Role                                                                               |
 | ----------- | -------------- | --------------- | ---------------------------------------------------------------------------------- |
 | **111**     | `dns-01`       | `.11`           | Technitium authoritative — 512M/10G LXC                                            |
 | **112**     | `adguard-01`   | `.14`           | AdGuard (DHCP Primary) — 512M/10G LXC                                              |
+| **113**     | `infisical-01` | `.15`           | Infisical + Postgres + Redis                                                       |
 | —           | `pve01`        | `192.168.68.13` | Proxmox (fixed)                                                                    |
-| **113**     | `gitlab-01`    | `.15`           | GitLab CE                                                                          |
-| **114**     | `runner-01`    | `.16`           | Host GitLab Runner                                                                 |
-| **115**     | `k8s-cp-01`    | `.17`           | Control plane                                                                      |
-| **116–118** | `k8s-w-01..03` | `.18–.20`       | Workers + Longhorn data disks                                                      |
-| **119**     | `docker-01`    | `.21`           | **All** Docker apps: NPM, Stalwart, AIStor, Dockhand, Portainer, it-tools, mailpit |
-| **120**     | `infisical-01` | `.25`           | Infisical + Postgres + Redis                                                       |
+| **114**     | `gitlab-01`    | `.25`           | GitLab CE                                                                          |
+| **115**     | `runner-01`    | `.16`           | Host GitLab Runner                                                                 |
+| **116**     | `k8s-cp-01`    | `.17`           | Control plane                                                                      |
+| **117–119** | `k8s-w-01..03` | `.18–.20`       | Workers + Longhorn data disks                                                      |
+| **120**     | `docker-01`    | `.21`           | **All** Docker apps: NPM, Stalwart, AIStor, Dockhand, Portainer, it-tools, mailpit |
 
 Destroyed: VM **110** (fat infra), old Dockhand/Portainer LXCs, VM **`ai-01`**,
 jumpbox **`ssh-01`** (CT 112), Ollama **`llm-01`** (CT 126). SSH directly to

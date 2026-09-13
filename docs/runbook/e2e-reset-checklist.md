@@ -12,12 +12,12 @@ Do **not** move pve01 off `.13`.
 | pve01                        | `.13`       |
 | dns-01 (Technitium)          | `.11`       |
 | adguard-01 (DNS for LAN/Mac) | `.14`       |
-| gitlab-01                    | `.15`       |
+| gitlab-01                    | `.25`       |
 | runner-01                    | `.16`       |
 | k8s-cp-01 (**6 GiB**)        | `.17`       |
 | k8s-w-01..03                 | `.18–.20`   |
 | docker-01                    | `.21`       |
-| infisical-01                 | `.25`       |
+| infisical-01                 | `.15`       |
 | Cilium LB pool               | `.100–.119` |
 
 **Destroyed (do not recreate):** VM 110 fat infra, LXC 118/119 Dockhand/Portainer, VM 120 `ai-01`, CT **112** `ssh-01`, CT **126** `llm-01`.
@@ -52,7 +52,7 @@ terraform apply tfplan
 **Verify**
 
 - [ ] Guests running (VMs + CTs for DNS / Infisical)
-- [ ] `ping` `.11` `.14`–`.21` `.25`
+- [ ] `ping` `.11` `.14`–`.21` `.15` `.25`
 - [ ] `pve01` still `.13` with default route via `.1`
 - [ ] Mac `/etc/resolver/lab` → `.14` (`ansible-lab/scripts/mac-resolver-lab.sh`)
 
@@ -86,7 +86,7 @@ make ansible
 ```bash
 dig @192.168.68.14 gitlab.lab +short    # .15
 curl -sI http://gitlab.lab/ | head
-curl -s http://192.168.68.25:8090/api/status
+curl -s http://192.168.68.15:8090/api/status
 ssh nasr@192.168.68.18 'findmnt /var/lib/longhorn && df -h /var/lib/longhorn'
 ```
 
@@ -104,7 +104,7 @@ cd lab-home-k8s
 make seed-gitops
 ```
 
-- [ ] http://192.168.68.15/homelab/lab-home-gitops exists
+- [ ] http://192.168.68.25/homelab/lab-home-gitops exists
 - [ ] **Revoke** temporary bring-up PAT(s) on gitlab-01 (`gitlab-rails` / UI)
 
 ---
@@ -167,8 +167,8 @@ kubectl -n gitops get pods
 
 ## 6) Cloudflare Tunnel
 
-Origins: GitLab `.15`, Proxy `.21:81`, Dockhand/Minio/Portainer → **`.21`**,
-Infisical → **`.25`**, Verdaccio `.106`, …
+Origins: GitLab `.25`, Proxy `.21:81`, Dockhand/Minio/Portainer → **`.21`**,
+Infisical → **`.15`**, Verdaccio `.106`, …
 
 ---
 
@@ -178,7 +178,7 @@ Bootstrap a fresh Infisical instance (no users yet):
 
 ```bash
 # Creates admin user + org + Instance Admin Identity token
-curl -X POST http://192.168.68.25:8090/api/v1/admin/bootstrap \
+curl -X POST http://192.168.68.15:8090/api/v1/admin/bootstrap \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@lab.nasraldin.com","password":"<strong>","organization":"Homelab"}'
 ```
@@ -190,7 +190,7 @@ Then attach Universal Auth + create a client secret (store in `secrets.yml` only
 3. Put `vault_infisical_ua_client_id` / `vault_infisical_ua_client_secret` (and admin email/password, org/identity ids) in `ansible/secrets.yml`
 4. `kubectl -n security create secret generic infisical-universal-auth --from-literal=clientId=… --from-literal=clientSecret=…`
 5. Seed: `ansible-playbook playbooks/infisical-seed.yml -e @secrets.yml`
-6. `InfisicalSecret` `hostAPI`: **`http://192.168.68.25:8090/api`** (not `.14` / old infra); credentialsRef namespace **`security`**
+6. `InfisicalSecret` `hostAPI`: **`http://192.168.68.15:8090/api`** (not `.14` / old infra); credentialsRef namespace **`security`**
 
 Until universal-auth exists, day-0 `apply-bootstrap-secrets.sh` keeps apps up.
 
@@ -209,7 +209,7 @@ Until universal-auth exists, day-0 `apply-bootstrap-secrets.sh` keeps apps up.
 
 - [ ] `http://gitlab.lab` HTTP sign-in
 - [ ] `http://argo.lab` · `http://proxy.lab:81` · `http://minio.lab:9001`
-- [ ] `http://infisical.lab` or `:8090` on `.25` (seeded + UA secret)
+- [ ] `http://infisical.lab` or `:8090` on `.15` (seeded + UA secret)
 - [ ] `http://webmail.lab` / `http://inbox.lab` (Bulwark; same-origin JMAP)
 - [ ] `http://openclaw.lab` → 302 `/__oc_boot` → Control UI
 - [ ] `kubectl -n database get cluster` · `kubectl -n ai-tools get pods`
@@ -219,7 +219,7 @@ Until universal-auth exists, day-0 `apply-bootstrap-secrets.sh` keeps apps up.
 
 | Symptom                              | Likely cause                         | Fix                                                                                            |
 | ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| InfisicalSecret failures             | Wrong `hostAPI` or no universal-auth | `.25`; bootstrap + UA secret                                                                   |
+| InfisicalSecret failures             | Wrong `hostAPI` or no universal-auth | `.15`; bootstrap + UA secret                                                                   |
 | MariaDB operator stuck               | Missing CRDs chart                   | `platform/data` `mariadb-operator-crds`                                                        |
 | LibreChat PVC/update issues          | RollingUpdate on single PVC          | Deployment `strategy: Recreate`                                                                |
 | Kyverno ImagePullBackOff cleanup Job | bitnami/kubectl gone                 | `policyReportsCleanup.enabled: false` + `registry.k8s.io/kubectl`                              |

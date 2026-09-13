@@ -1,4 +1,5 @@
-# VMIDs packed 111–120. IPs unchanged (PVE stays .13). No jumpbox / no LLM guest.
+# VMIDs packed 111–120: CTs 111–113, VMs 114–120.
+# Infisical .15 / GitLab .25 (PVE stays .13, AdGuard stays .14).
 
 proxmox_endpoint = "https://192.168.68.13:8006/"
 node_name        = "pve01"
@@ -35,16 +36,16 @@ lxc_templates = {
 vms = {
   gitlab-01 = {
     image         = "debian-13"
-    vm_id         = 113
+    vm_id         = 114
     cores         = 4
     memory        = 12288
     disk_gb       = 150
-    ip            = "192.168.68.15/22"
+    ip            = "192.168.68.25/22"
     startup_order = 4
   }
   runner-01 = {
     image         = "debian-13"
-    vm_id         = 114
+    vm_id         = 115
     cores         = 2
     memory        = 4096
     disk_gb       = 40
@@ -53,7 +54,7 @@ vms = {
   }
   k8s-cp-01 = {
     image         = "debian-13"
-    vm_id         = 115
+    vm_id         = 116
     cores         = 2
     memory        = 6144
     disk_gb       = 40
@@ -64,7 +65,7 @@ vms = {
   # raw cluster capacity on data01 (ZFS thin). Grow later with: qm resize <vmid> scsi1 Ng
   k8s-w-01 = {
     image         = "debian-13"
-    vm_id         = 116
+    vm_id         = 117
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -74,7 +75,7 @@ vms = {
   }
   k8s-w-02 = {
     image         = "debian-13"
-    vm_id         = 117
+    vm_id         = 118
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -84,7 +85,7 @@ vms = {
   }
   k8s-w-03 = {
     image         = "debian-13"
-    vm_id         = 118
+    vm_id         = 119
     cores         = 4
     memory        = 12288
     disk_gb       = 60
@@ -94,7 +95,7 @@ vms = {
   }
   docker-01 = {
     image         = "debian-13"
-    vm_id         = 119
+    vm_id         = 120
     cores         = 2
     memory        = 8192
     disk_gb       = 120
@@ -132,11 +133,11 @@ containers = {
   # Infisical + local Postgres/Redis (official Compose; nesting for Docker)
   infisical-01 = {
     template     = "debian-13"
-    vm_id        = 120
+    vm_id        = 113
     cores        = 2
     memory       = 4096
     disk_gb      = 40
-    ip           = "192.168.68.25/22"
+    ip           = "192.168.68.15/22"
     unprivileged = true
     os_type      = "debian"
   }

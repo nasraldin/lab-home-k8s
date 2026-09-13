@@ -1,7 +1,7 @@
 ---
 # Register against the LAN origin. Public HTTPS (Tunnel) can return 530 before
 # the CF connector is healthy; runners on the lab VLAN do not need the public URL.
-gitlab_runner_url: "http://{{ hostvars['gitlab-01'].ansible_host | default('192.168.68.15') }}"
+gitlab_runner_url: "http://{{ hostvars['gitlab-01'].ansible_host | default('192.168.68.25') }}"
 gitlab_runner_name: "{{ inventory_hostname }}-docker"
 gitlab_runner_executor: docker
 gitlab_runner_docker_image: "alpine:latest"

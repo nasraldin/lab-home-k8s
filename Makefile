@@ -47,7 +47,7 @@ wait-longhorn:
 bootstrap:
 	./scripts/fetch-kubeconfig.sh
 	K8S_API_HOST=$${K8S_API_HOST:-192.168.68.17} ./scripts/install-cilium.sh
-	GITOPS_REPO=$${GITOPS_REPO:-http://192.168.68.15/homelab/lab-home-gitops.git} ./scripts/install-argocd.sh
+	GITOPS_REPO=$${GITOPS_REPO:-http://192.168.68.25/homelab/lab-home-gitops.git} ./scripts/install-argocd.sh
 	./scripts/apply-bootstrap-secrets.sh
 
 # Full path after terraform apply. Requires GITLAB_TOKEN + GITOPS_TOKEN (same PAT is fine).

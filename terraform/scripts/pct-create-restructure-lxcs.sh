@@ -41,8 +41,8 @@ create_ct 112 adguard-01 192.168.68.14 512 10 1
 pct set 112 --startup order=1,up=15 || true
 
 # Infisical
-create_ct 120 infisical-01 192.168.68.25 4096 40 2
-pct set 120 --startup order=12 || true
+create_ct 113 infisical-01 192.168.68.15 4096 40 2
+pct set 113 --startup order=12 || true
 
 echo "Done. VMIDs 111–120. Do not recreate ssh-01 / llm-01."
 pct list
