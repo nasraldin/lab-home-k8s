@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Create / document lab LXCs on pve01 via pct (when Terraform API is flaky).
 # VMIDs packed 111–120. No jumpbox / no dedicated LLM guest.
-# Run on Mac: ssh root@192.168.68.13 'bash -s' < terraform/scripts/pct-create-restructure-lxcs.sh
+# Run on Mac: ssh root@192.168.68.10 'bash -s' < terraform/scripts/pct-create-restructure-lxcs.sh
 set -euo pipefail
 
 NODE_SSH_KEY="${NODE_SSH_KEY:-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH9wRDs8478+qe0aQk1Cfwv98FHoByrmWLP63Rngbn/G pve01.lab.nasraldin.com}"
@@ -36,7 +36,7 @@ create_ct() {
 create_ct 111 dns-01 192.168.68.11 512 10 1
 pct set 111 --startup order=2,up=10 || true
 
-# AdGuard recursive DNS — IP stays .14 (PVE is .13)
+# AdGuard recursive DNS — IP stays .14 (PVE is .10)
 create_ct 112 adguard-01 192.168.68.14 512 10 1
 pct set 112 --startup order=1,up=15 || true
 

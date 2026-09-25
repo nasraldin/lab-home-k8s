@@ -7,11 +7,11 @@ lab_short_zone: "lab" # Short LAN-only zone (gitlab.lab, grafana.lab, …)
 lab_mail_zone: "dev.test"
 public_zone: "nasraldin.com"
 gateway_ip: "192.168.68.1"
-pve_ip: "192.168.68.13" # Proxmox hypervisor (not a guest VM)
+pve_ip: "192.168.68.10" # Proxmox hypervisor (not a guest VM)
 adguard_ip: "192.168.68.14"
 technitium_ip: "192.168.68.11"
 
-# Guest LAN addresses — Infisical .15 / GitLab .25 (PVE .13, AdGuard .14)
+# Guest LAN addresses — Infisical .15 / GitLab .25 (PVE .10, AdGuard .14)
 guest_ips:
   adguard-01: "192.168.68.14"
   dns-01: "192.168.68.11"

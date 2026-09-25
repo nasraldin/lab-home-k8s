@@ -17,7 +17,7 @@ Canonical secret store: `ansible/secrets.yml` + Infisical on `.15`.
 | **111**     | `dns-01`       | `.11`           | Technitium authoritative — 512M/10G LXC                                            |
 | **112**     | `adguard-01`   | `.14`           | AdGuard (DHCP Primary) — 512M/10G LXC                                              |
 | **113**     | `infisical-01` | `.15`           | Infisical + Postgres + Redis                                                       |
-| —           | `pve01`        | `192.168.68.13` | Proxmox (fixed)                                                                    |
+| —           | `pve01`        | `192.168.68.10` | Proxmox (fixed)                                                                    |
 | **114**     | `gitlab-01`    | `.25`           | GitLab CE                                                                          |
 | **115**     | `runner-01`    | `.16`           | Host GitLab Runner                                                                 |
 | **116**     | `k8s-cp-01`    | `.17`           | Control plane                                                                      |

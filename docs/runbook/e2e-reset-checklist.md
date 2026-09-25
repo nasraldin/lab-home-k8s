@@ -1,15 +1,15 @@
 # End-to-end factory reset checklist (pve01)
 
-Use this after a full wipe/rebuild of guests on **pve01 (`192.168.68.13`)**.
+Use this after a full wipe/rebuild of guests on **pve01 (`192.168.68.10`)**.
 Goal: Terraform + Ansible + GitOps bring every core service up **without ad-hoc debugging**.
 
 Canonical inventory: [lab-home-inventory.md](../../../docs/operations/lab-home-inventory.md).
 Restructure: [lab-restructure-2026-07-30.md](../../../docs/operations/lab-restructure-2026-07-30.md).
-Do **not** move pve01 off `.13`.
+Do **not** move pve01 off `.10`.
 
 | Guest                        | IP          |
 | ---------------------------- | ----------- |
-| pve01                        | `.13`       |
+| pve01                        | `.10`       |
 | dns-01 (Technitium)          | `.11`       |
 | adguard-01 (DNS for LAN/Mac) | `.14`       |
 | gitlab-01                    | `.25`       |
@@ -28,7 +28,7 @@ See also: [bring-up-issues-2026-07.md](./bring-up-issues-2026-07.md) · `CREDENT
 
 ## 0) Preconditions (laptop + Proxmox)
 
-- [ ] Mac can SSH to `root@192.168.68.13` and guests
+- [ ] Mac can SSH to `root@192.168.68.10` and guests
 - [ ] `lab-home-k8s/terraform/credentials.auto.tfvars` has a valid Proxmox API token
 - [ ] `lab-home-k8s/ansible/secrets.yml` present
 - [ ] AIStor license at `ansible/files/aistor/minio.license`
@@ -53,7 +53,7 @@ terraform apply tfplan
 
 - [ ] Guests running (VMs + CTs for DNS / Infisical)
 - [ ] `ping` `.11` `.14`–`.21` `.15` `.25`
-- [ ] `pve01` still `.13` with default route via `.1`
+- [ ] `pve01` still `.10` with default route via `.1`
 - [ ] Mac `/etc/resolver/lab` → `.14` (`ansible-lab/scripts/mac-resolver-lab.sh`)
 
 ---

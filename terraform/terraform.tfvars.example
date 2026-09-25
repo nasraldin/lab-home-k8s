@@ -1,7 +1,7 @@
 # VMIDs packed 111–120: CTs 111–113, VMs 114–120.
-# Infisical .15 / GitLab .25 (PVE stays .13, AdGuard stays .14).
+# Infisical .15 / GitLab .25 (PVE stays .10, AdGuard stays .14).
 
-proxmox_endpoint = "https://192.168.68.13:8006/"
+proxmox_endpoint = "https://192.168.68.10:8006/"
 node_name        = "pve01"
 
 network_gateway = "192.168.68.1"
@@ -119,7 +119,7 @@ containers = {
     unprivileged = true
     os_type      = "debian"
   }
-  # Recursive DNS + filtering — IP stays .14 (PVE is .13)
+  # Recursive DNS + filtering — IP stays .14 (PVE is .10)
   adguard-01 = {
     template     = "debian-13"
     vm_id        = 112

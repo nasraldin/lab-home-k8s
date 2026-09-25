@@ -1,7 +1,7 @@
 # --- Connection ---------------------------------------------------------------
 
 variable "proxmox_endpoint" {
-  description = "Proxmox VE API endpoint, e.g. https://192.168.68.13:8006/"
+  description = "Proxmox VE API endpoint, e.g. https://192.168.68.10:8006/"
   type        = string
 }
 
