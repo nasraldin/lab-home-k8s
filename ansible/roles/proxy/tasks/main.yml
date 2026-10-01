@@ -87,4 +87,3 @@
 
 - name: Ensure lab UI proxy routes
   ansible.builtin.include_tasks: routes.yml
-

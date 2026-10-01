@@ -14,12 +14,12 @@
       - vault_proxy_admin_email is defined
       - vault_proxy_admin_password is defined
       - >-
-          not (stalwart_webmail_enabled | bool)
-          or (
-            vault_bulwark_session_secret is defined
-            and (vault_bulwark_session_secret | length >= 24)
-            and ('replace-with' not in vault_bulwark_session_secret)
-          )
+        not (stalwart_webmail_enabled | bool)
+        or (
+          vault_bulwark_session_secret is defined
+          and (vault_bulwark_session_secret | length >= 24)
+          and ('replace-with' not in vault_bulwark_session_secret)
+        )
     fail_msg: >-
       Set vault_stalwart_recovery_password, vault_stalwart_admin_password,
       vault_stalwart_mailbox_password, vault_proxy_admin_*, and

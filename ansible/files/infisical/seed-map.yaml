@@ -123,12 +123,7 @@ projects:
           path: /librechat,
           optional: true,
         }
-      - {
-          key: LITELLM_MASTER_KEY,
-          from: vault_litellm_master_key,
-          path: /litellm,
-          optional: true,
-        }
+      - { key: LITELLM_MASTER_KEY, from: vault_litellm_master_key, path: /litellm, optional: true }
       - {
           key: LITELLM_POSTGRES_PASSWORD,
           from: vault_litellm_postgres_password,
